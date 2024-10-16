@@ -5,5 +5,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(a
     main.cc
+    error.cc
     lexer.cc
-    parser.cc)
+    # parser.cc
+)

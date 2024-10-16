@@ -1,20 +1,26 @@
+#include "error.h"
 #include "lexer.h"
 
 
 
 
 int main(int argc, char* argv[]) {
-    std::string dir;
-    bool lex_flag = false;
+    std::string fileNameWithDir;
+    bool lexFlag = true;  // print tokens
+    bool parFlag = false;
     for (int i = 0; i < argc; ++i) {
         std::string arg = argv[i];
-        if (arg == "--lex") {lex_flag = true; continue;}
-        dir = arg;
+        if (arg == "--lex") { lexFlag = true; continue; }
+        if (arg == "--par") { parFlag = true; continue; }
+        fileNameWithDir = arg;
     }
-    auto tokens = lexer(dir);
-    if (lex_flag) {
-        for (Token token : tokens) token.print();
-        std::cout << std::endl;
-        return 0;
+    Lexer lexer(fileNameWithDir, lexFlag);
+    if (lexFlag) {
+        while (true) {
+            Token t = lexer.next();
+            if (t.type == TokenType::END) { break; }
+        }
     }
+    error_summary(fileNameWithDir);
+    return 0;
 }

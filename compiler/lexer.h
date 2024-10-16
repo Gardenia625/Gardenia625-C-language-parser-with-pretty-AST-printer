@@ -8,18 +8,60 @@
 #include <unordered_set>
 
 #include <format>
+#include <variant>
 
-enum class TokenType;
-TokenType getTokenType(const std::string&);
+using TokenValue = std::variant<int, char, std::string>;
 
-class Token {
-public:
-    Token(const std::string& s): name(s) {type = getTokenType(s);}
-    void print() {std::cout << name << ' ';}
-private:
-    TokenType type;
-    std::string name;
+enum class TokenType {
+    ERROR,
+    MACRO,
+    COMMENT,
+    NUMBER,
+    CHAR,    
+    STRING,
+    IDENTIFIER,
+    KEYWORD,
+    OPERATOR,
+    SEPARATOR,
+    END
 };
 
+struct Token {
+    TokenType type;
+    TokenValue value;
+    int row;
+    int col;
+    void print();
+};
 
-std::vector<Token> lexer(std::string);
+class Lexer {
+public:
+    // friend Parser;
+    Lexer(std::string filename, bool flag);
+    Token next();
+private:
+    std::ifstream file;
+    char c;
+    int row;
+    int col;
+    bool flag;
+    void move_forward();
+    void move_backward();
+    Token next_token();
+    Token next_identifier();
+    Token next_number();
+    Token next_char();
+    Token next_string();
+    Token next_comment();
+    Token next_symbol();
+    Token next_macro();
+};
+
+// open the source file
+inline Lexer::Lexer(std::string filename, bool flag)
+    : c('\0'), row(0), col(-1), file(filename), flag(flag) {
+    if (!file) {
+        std::cerr << "Failed to open the file." << std::endl;
+        exit(1);
+    }
+}

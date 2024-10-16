@@ -1,153 +1,209 @@
 #include "lexer.h"
+#include "error.h"
 
-enum class TokenType {
-        IDENTIFIER,
-        CONSTANT,
-        VOID,
-        INT,
-        RETURN,
-        L_PARENTHESIS,
-        R_PARENTHESIS,
-        L_BRACE,
-        R_BRACE,
-        SEMICOLON,
-};
-
-const std::unordered_map<std::string, TokenType> tokenTypeMap {
-    // built-in types
-    {"void", TokenType::VOID},
-    {"int", TokenType::INT},
-    // keywords
-    {"return", TokenType::RETURN},
-    // single-symbol tokens
-    {"(", TokenType::L_PARENTHESIS},
-    {")", TokenType::R_PARENTHESIS},
-    {"{", TokenType::L_BRACE},
-    {"}", TokenType::R_BRACE},
-    {";", TokenType::SEMICOLON},
-  
-};
-
-TokenType getTokenType(const std::string& s) {
-    auto it = tokenTypeMap.find(s);
-    if (it != tokenTypeMap.end()) {
-        return it->second;
+void Token::print() {
+    std::cout << '[' << std::format("{:>4}", std::to_string(row)) << ':'
+              << std::format("{:>4}", std::to_string(col)) << "] ";
+    switch (type) {
+    case TokenType::ERROR:
+        std::cout << COLOR_ERROR << "error token" << COLOR_RESET;
+        break;
+    case TokenType::NUMBER:
+        std::cout << std::get<int>(value);
+        break;
+    case TokenType::CHAR:
+        std::cout << '\'' << std::get<char>(value) << '\'';
+        break;
+    case TokenType::STRING:
+        std::cout << '"' << std::get<char>(value) << '"' ;
+        break;
+    default:
+        std::cout << std::get<std::string>(value);
     }
-    if (isdigit(s[0])) {
-        return TokenType::CONSTANT;
-    }
-    return TokenType::IDENTIFIER;
+    std::cout << std::endl;
 }
 
-
-
-// single-symbol tokens
-std::unordered_set<char> symbols{'(', ')', '{', '}', ';'};
-
-// print the error message and terminate the program
-void tokenError(const std::string& message, int lineNumber, const std::string& line) {
-    std::cerr << "\033[1;91merror: \033[0m" << message << std::endl
-              << std::format("{:>5}", std::to_string(lineNumber))
-              << "  | " << line << "       |"  << std::endl;
-    exit(1);
-}
-
-enum class State { 
-    nothing,
-    number,
-    name,
-    maybe_comment,
-    single_comment,
-    multi_comment,
-    comment_end,
+std::unordered_map<std::string, TokenType> get_token_type {
+    {"return", TokenType::KEYWORD}
 };
 
-std::vector<Token> lexer(std::string filename) {
-    std::vector<Token> tokens;
-    std::ifstream file(filename);
-    if (!file) {
-        std::cerr << "Failed to open the file." << std::endl;
-        exit(1);
+std::unordered_map<char, char> get_escape_char {
+    {'\\', '\\'},
+    {'\'', '\''},
+    {'"', '\"'},
+    {'n', '\n'},
+    {'r', '\r'},
+    {'t', '\t'},
+    {'b', '\b'},
+    {'f', '\f'},
+    {'a', '\a'},
+    {'v', '\v'},
+    {'0', '\0'}
+};
+
+// get the next character from the file
+void Lexer::move_forward() {
+    if (c == '\n') {
+        ++row;
+        col = 0;
     }
+    else {
+        ++col;
+    }
+    file.get(c);
+}
 
-    State state = State::nothing;
-    int lineNumber = -1;
-    std::string line;
-    char c;
-    std::string name;
-    while (getline(file, line)) {
-        ++lineNumber;
-        line.push_back('\n');
-        std::istringstream iss(line);
-        while (iss.get(c)) {
-            if (isspace(c) || symbols.find(c) != symbols.end()) {
-                if (!name.empty()) {
-                    tokens.emplace_back(name);
-                    state = State::nothing;
-                    name.clear();
-                }
-                if (!isspace(c)) {
-                    tokens.emplace_back(std::string{c});
-                }
-                continue;
-            }
-            switch (state) {
-                case State::nothing:
-                    if (c == '/') {
-                        state = State::maybe_comment;
-                        break; 
-                    }
-                    name.push_back(c);
-                    if (isdigit(c)) {
-                        state = State::number;
-                        break;
-                    }
-                    if (isalpha(c) || c == '_') {
-                        state = State::name;
-                        break;
-                    }
-                    tokenError(std::format("invalid token '{}'", c), lineNumber, line);
-                case State::number:
-                    if (isdigit(c)) {
-                        name.push_back(c);
-                        break;
-                    }
-                    tokenError(std::format("invalid character '{}' in number", c), lineNumber, line);
-                case State::name:
-                    if (isalnum(c) || c == '_') {
-                        name.push_back(c);
-                        break;
-                    }
-                    tokenError(std::format("invalid character '{}' in identifier", c), lineNumber, line);
-                case State::maybe_comment:
-                    if (c == '/') {
-                        state = State::single_comment;
-                        break;
-                    }
-                    if (c == '*') {
-                        state = State::multi_comment;
-                        break;
-                    }
-                    tokenError("invalid character '/'", lineNumber, line);
-                case State::multi_comment:
-                    if (c == '*') {
-                        state = State::comment_end;
-                    }
-                    break;
-                case State::comment_end:
-                    if (c == '/') {
-                        state = State::nothing;
-                    }
-                    else {
-                        state = State::multi_comment;
-                    }
-                    break;
-            }
+// backtrack a character
+void Lexer::move_backward() {
+    file.seekg(-1, std::ios::cur);
+    --col;
+}
 
-            if (state == State::single_comment) { state = State::nothing; break; }
+// get next token and print it if needed
+Token Lexer::next() {
+    Token token = next_token();
+    if (flag) {
+        token.print();
+    }
+    return token;
+}
+
+Token Lexer::next_token() {
+    while (true) {
+        move_forward();
+        if (file.eof()) {              // EOF
+            file.close();
+            return Token(TokenType::END, 0, row, col);  
         }
+        if (isspace(c)) {              // ignore whitespaces
+            continue;
+        }
+        if (c == '/') {                // maybe a comment
+            Token t = next_comment();
+            if (t.type == TokenType::OPERATOR) {
+                return t;
+            }
+            continue;
+        }
+        if (c == '#') {                // macro
+            return next_macro();
+        }
+        if (isdigit(c)) {              // number
+            return next_number();
+        }
+        if (isalpha(c) || c == '_') {  // identifier of keyword
+            return next_identifier();
+        }
+        if (c == '\'') {               // char
+            return next_char();
+        }
+        if (c == '"') {               // string
+            return next_string();
+        }
+        return next_symbol();
     }
+}
 
-    file.close();
-    return tokens;
+Token Lexer::next_comment() {
+    move_forward();
+    if (c == '/') {         // single-line comment
+        while (c != '\n') {
+            move_forward();
+        }
+        return Token(TokenType::COMMENT, 0, row, col);
+    } else if (c == '*') {  // multi-line comment
+        bool maybe_end = false;
+        while (true) {
+            move_forward();
+            if (maybe_end && c == '/') {
+                return Token(TokenType::COMMENT, 0, row, col);
+            }
+            maybe_end = (c == '*');
+        }
+    } else {                // not a comment
+        if (!isspace(c)) {
+            move_backward();
+        }
+        return Token(TokenType::OPERATOR, "/", row, col);
+    }
+}
+
+Token Lexer::next_macro() {
+    std::string name;
+    move_forward();
+    while (isalpha(c)) {
+        name += c;
+        move_forward();
+    }
+    if (!isspace(c)) {
+        move_backward();
+    }
+    return Token(TokenType::MACRO, name, row, col);
+}
+
+Token Lexer::next_number() {
+    int v = 0;
+    do {
+        v *= 10;
+        v += c - '0';
+        move_forward();
+    } while (isdigit(c));
+    if (!isspace(c)) {
+        move_backward();
+    }
+    return Token(TokenType::NUMBER, v, row, col);
+}
+
+Token Lexer::next_identifier() {
+    std::string name;
+    do {
+        name += c;
+        move_forward();
+    } while (isalnum(c) || c == '_');
+    if (!isspace(c)) {
+        move_backward();
+    }
+    auto it = get_token_type.find(name);
+    if (it != get_token_type.end()) {  // keyword
+        return Token(it->second, name, row, col);
+    }
+    else {
+        return Token(TokenType::IDENTIFIER, name, row, col);
+    }
+}
+
+Token Lexer::next_char() {
+    move_forward();
+    char v = c;
+    move_forward();
+    if (c != '\'') {
+        make_error("expected a quotation", row, col);
+        return Token(TokenType::ERROR, 0, row, col);
+    }
+    return Token(TokenType::CHAR, v, row, col);
+}
+
+Token Lexer::next_string() {
+    std::string s;
+    move_forward();
+    while (c != '"') {
+        if (c == '\\') {  // escape character
+            move_forward();
+            auto it = get_escape_char.find(c);
+            if (it != get_escape_char.end()) {
+                s += it->second;
+            } else {
+                make_error("unknown escape character", row, col);
+                return Token(TokenType::ERROR, 0, row, col);
+            }
+        } else {
+            s += c;
+        } 
+        move_forward();
+    }
+    return Token(TokenType::STRING, s, row, col);
+}
+
+Token Lexer::next_symbol() {
+    return Token(TokenType::SEPARATOR, std::string{c}, row, col);
 }
