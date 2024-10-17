@@ -5,26 +5,59 @@ void Token::print() {
     std::cout << '[' << std::format("{:>4}", std::to_string(row)) << ':'
               << std::format("{:>4}", std::to_string(col)) << "] ";
     switch (type) {
-    case TokenType::ERROR:
-        std::cout << COLOR_ERROR << "error token" << COLOR_RESET;
-        break;
-    case TokenType::NUMBER:
-        std::cout << std::get<int>(value);
-        break;
-    case TokenType::CHAR:
-        std::cout << '\'' << std::get<char>(value) << '\'';
-        break;
-    case TokenType::STRING:
-        std::cout << '"' << std::get<char>(value) << '"' ;
-        break;
-    default:
-        std::cout << std::get<std::string>(value);
+        case TokenType::ERROR:
+            std::cout << COLOR_ERROR << "error token" << COLOR_RESET;
+            break;
+        case TokenType::NUMBER:
+            std::cout << std::get<int>(value);
+            break;
+        case TokenType::CHAR:
+            std::cout << '\'' << std::get<char>(value) << '\'';
+            break;
+        case TokenType::STRING:
+            std::cout << '"' << std::get<char>(value) << '"' ;
+            break;
+        default:
+            std::cout << std::get<std::string>(value);
     }
     std::cout << std::endl;
 }
 
 std::unordered_map<std::string, TokenType> get_token_type {
-    {"return", TokenType::KEYWORD}
+    // types
+    // {"unsigned", TokenType::TYPE},
+    // {"signed", TokenType::TYPE},
+    // {"char", TokenType::TYPE},
+    // {"short", TokenType::TYPE},
+    {"int", TokenType::TYPE},
+    // {"float", TokenType::TYPE},
+    // {"double", TokenType::TYPE},
+    // {"long", TokenType::TYPE},
+    {"void", TokenType::TYPE},
+    // {"struct", TokenType::TYPE},
+    // {"union", TokenType::TYPE},
+    // {"static", TokenType::TYPE},
+    // keyword
+    {"return", TokenType::KEYWORD},
+    // {"include", TokenType::KEYWORD},
+    // {"sizeof", TokenType::KEYWORD},
+    // {"if", TokenType::KEYWORD},
+    // {"else", TokenType::KEYWORD},
+    // {"for", TokenType::KEYWORD},
+    // {"while", TokenType::KEYWORD},
+    // {"do", TokenType::KEYWORD},
+    // {"continue", TokenType::KEYWORD},
+    // {"break", TokenType::KEYWORD},
+    // {"switch", TokenType::KEYWORD},
+    // {"case", TokenType::KEYWORD},
+    // {"default", TokenType::KEYWORD},
+    // {"goto", TokenType::KEYWORD},
+    // {"typedef", TokenType::KEYWORD},
+
+    // {"__ignore_typecheck__", TokenType::KEYWORD},
+    // {"const", TokenType::KEYWORD},
+    // {"extern", TokenType::KEYWORD},
+    // {"restrict", TokenType::KEYWORD},
 };
 
 std::unordered_map<char, char> get_escape_char {
@@ -46,47 +79,33 @@ void Lexer::move_forward() {
     if (c == '\n') {
         ++row;
         col = 0;
-    }
-    else {
+    } else {
         ++col;
     }
     file.get(c);
 }
 
-// backtrack a character
-void Lexer::move_backward() {
-    file.seekg(-1, std::ios::cur);
-    --col;
-}
-
 // get next token and print it if needed
 Token Lexer::next() {
     Token token = next_token();
-    if (flag) {
+    if (flag && token.type != TokenType::END) {
         token.print();
     }
     return token;
 }
 
 Token Lexer::next_token() {
-    while (true) {
-        move_forward();
-        if (file.eof()) {              // EOF
-            file.close();
-            return Token(TokenType::END, 0, row, col);  
-        }
+    while (!file.eof()) {
         if (isspace(c)) {              // ignore whitespaces
+            move_forward();
             continue;
         }
         if (c == '/') {                // maybe a comment
             Token t = next_comment();
-            if (t.type == TokenType::OPERATOR) {
+            if (t.type != TokenType::COMMENT) {
                 return t;
             }
             continue;
-        }
-        if (c == '#') {                // macro
-            return next_macro();
         }
         if (isdigit(c)) {              // number
             return next_number();
@@ -102,108 +121,218 @@ Token Lexer::next_token() {
         }
         return next_symbol();
     }
+    file.close();
+    return Token(TokenType::END, 0, row, col);
 }
 
 Token Lexer::next_comment() {
+    Token ret(TokenType::COMMENT, "/", row, col);
+    bool maybe_end = false;
     move_forward();
-    if (c == '/') {         // single-line comment
-        while (c != '\n') {
-            move_forward();
-        }
-        return Token(TokenType::COMMENT, 0, row, col);
-    } else if (c == '*') {  // multi-line comment
-        bool maybe_end = false;
-        while (true) {
-            move_forward();
-            if (maybe_end && c == '/') {
-                return Token(TokenType::COMMENT, 0, row, col);
+    switch(c) {
+        case '/':                  // single-line comment
+            while (c != '\n' && !file.eof()) {
+                move_forward();
             }
-            maybe_end = (c == '*');
-        }
-    } else {                // not a comment
-        if (!isspace(c)) {
-            move_backward();
-        }
-        return Token(TokenType::OPERATOR, "/", row, col);
+            return ret;
+        case '*':                  // multi-line comment
+            while (true) {         // can only ends with "*/"
+                move_forward();
+                if (file.eof()) {
+                    make_error("unterminated comment", ret.row, ret.col);
+                    ret.type = TokenType::ERROR;
+                    return ret;
+                } else if (maybe_end || c == '/'){
+                    move_forward();
+                    return ret;
+                }
+                maybe_end = (c == '*');
+            }
+        case '=':                  // binary operator "/="
+            ret.type = TokenType::BINARY_OPERATOR;
+            ret.value = "/=";
+            move_forward();
+            return ret;
+        default:                   // unary operator "/"
+            ret.type = TokenType::UNARY_OPERATOR;
+            return ret;
     }
 }
 
-Token Lexer::next_macro() {
-    std::string name;
-    move_forward();
-    while (isalpha(c)) {
-        name += c;
-        move_forward();
-    }
-    if (!isspace(c)) {
-        move_backward();
-    }
-    return Token(TokenType::MACRO, name, row, col);
-}
+std::unordered_set<char> end_of_number {
+    '+', '-', '*', '/', '%', '&', '|', '^', '<', '=', '>', '!',
+    ')', ']', '}', ',', ';'
+};
 
 Token Lexer::next_number() {
+    Token ret(TokenType::NUMBER, 0, row, col);
+    bool is_float = false;
     int v = 0;
-    do {
+    // if (c == '.' || c == 'e' || c == 'E' || c == 'p' || c == 'P') {
+    //     is_float == true;
+    // }
+    // if (c == '0') {
+    //     move_forward();
+    //     if (c == 'x' || c == 'X') {  // base 16
+
+    //     } else {                     // base 8
+            
+    //     }
+    // } else {                         // base 10
+
+    // }
+
+    while (isdigit(c)) {
         v *= 10;
         v += c - '0';
         move_forward();
-    } while (isdigit(c));
-    if (!isspace(c)) {
-        move_backward();
     }
-    return Token(TokenType::NUMBER, v, row, col);
+    auto it = end_of_number.find(c);
+    if (it == end_of_number.end()) {
+        make_error("invalid number", ret.row, ret.col);
+        ret.type = TokenType::ERROR;
+        do {
+            move_forward();
+            it = end_of_number.find(c);
+        } while (it == end_of_number.end() && !file.eof());
+    }
+    ret.value = v;
+    return ret;
 }
 
 Token Lexer::next_identifier() {
+    Token ret(TokenType::IDENTIFIER, "", row, col);
     std::string name;
-    do {
+    while((isalnum(c) || c == '_') && !file.eof()) {
         name += c;
         move_forward();
-    } while (isalnum(c) || c == '_');
-    if (!isspace(c)) {
-        move_backward();
     }
+    ret.value = name;
     auto it = get_token_type.find(name);
     if (it != get_token_type.end()) {  // keyword
-        return Token(it->second, name, row, col);
+        ret.type = it->second;
     }
-    else {
-        return Token(TokenType::IDENTIFIER, name, row, col);
-    }
+    return ret;
 }
 
 Token Lexer::next_char() {
+    Token ret(TokenType::CHAR, '\0', row, col);
     move_forward();
-    char v = c;
+    ret.value = c;
+    if (c == '\\') {  // escape character
+        move_forward();
+        auto it = get_escape_char.find(c);
+        if (it != get_escape_char.end()) {
+            ret.value = it->second;
+        } else {
+            make_error("unknown escape character", row, col);
+            ret.type = TokenType::ERROR;
+        }
+    }
     move_forward();
     if (c != '\'') {
         make_error("expected a quotation", row, col);
-        return Token(TokenType::ERROR, 0, row, col);
+        ret.type = TokenType::ERROR;
     }
-    return Token(TokenType::CHAR, v, row, col);
+    move_forward();
+    return ret;
 }
 
 Token Lexer::next_string() {
-    std::string s;
+    Token ret(TokenType::STRING, "", row, col);
     move_forward();
+    std::string s;
     while (c != '"') {
         if (c == '\\') {  // escape character
             move_forward();
+            if (file.eof()) {
+                make_error("unterminated string", ret.row, ret.col);
+                ret.type = TokenType::ERROR;
+                break;
+            }
             auto it = get_escape_char.find(c);
             if (it != get_escape_char.end()) {
                 s += it->second;
             } else {
                 make_error("unknown escape character", row, col);
-                return Token(TokenType::ERROR, 0, row, col);
+                ret.type = TokenType::ERROR;
             }
         } else {
             s += c;
         } 
         move_forward();
+        if (file.eof()) {
+            make_error("unterminated string", row, col);
+            ret.type = TokenType::ERROR;
+            break;
+        }
     }
-    return Token(TokenType::STRING, s, row, col);
+    ret.value = s;
+    move_forward();
+    return ret;
 }
 
 Token Lexer::next_symbol() {
-    return Token(TokenType::SEPARATOR, std::string{c}, row, col);
+    Token ret(TokenType::SYMBOL, std::string{c}, row, col);
+    char first = c;
+    move_forward();
+    char second = c;
+    switch (first) {
+        case '+':
+        case '-':
+        case '*':
+        case '%':
+        case '&':
+        case '|':
+        case '^':
+        case '<':
+        case '>':
+        case '=':
+            if (first == second || second == '=') {
+                ret.type = TokenType::BINARY_OPERATOR;
+                ret.value = std::string{first, second};
+            } else {
+                ret.type = TokenType::UNARY_OPERATOR;
+            }
+            break;
+        case '!':
+            if (second == '=') {
+                ret.type = TokenType::BINARY_OPERATOR;
+                ret.value = std::string{first, second};
+            } else {
+                ret.type = TokenType::UNARY_OPERATOR;
+            }
+            break;
+        case '~':
+        case '(':
+        case '[':
+        case ',':
+        case '.':
+        case '?':
+            ret.type = TokenType::UNARY_OPERATOR;
+            break;
+        case '{':
+        case '}':
+        case ')':
+        case ']':
+        case ':':
+        case ';':
+        case '#':
+        case '\\':
+            while (isspace(c) && !file.eof()) {
+                move_forward();
+            }
+            if (file.eof()) {
+                make_error("stray '\\'", ret.row, ret.col);
+                ret.type = TokenType::ERROR;
+            }
+            break;
+        default:
+            make_error("unknown symbol", ret.row, ret.col);
+            ret.type = TokenType::ERROR;
+    }
+    if (ret.type != TokenType::UNARY_OPERATOR) {
+        move_forward();
+    }
+    return ret;
 }

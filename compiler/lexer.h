@@ -14,15 +14,16 @@ using TokenValue = std::variant<int, char, std::string>;
 
 enum class TokenType {
     ERROR,
-    MACRO,
     COMMENT,
     NUMBER,
     CHAR,    
     STRING,
     IDENTIFIER,
+    TYPE,
     KEYWORD,
-    OPERATOR,
-    SEPARATOR,
+    UNARY_OPERATOR,
+    BINARY_OPERATOR,
+    SYMBOL,
     END
 };
 
@@ -41,12 +42,11 @@ public:
     Token next();
 private:
     std::ifstream file;
-    char c;
+    char c;  // the next character waiting to be processed
     int row;
     int col;
     bool flag;
     void move_forward();
-    void move_backward();
     Token next_token();
     Token next_identifier();
     Token next_number();
@@ -54,14 +54,14 @@ private:
     Token next_string();
     Token next_comment();
     Token next_symbol();
-    Token next_macro();
 };
 
 // open the source file
 inline Lexer::Lexer(std::string filename, bool flag)
-    : c('\0'), row(0), col(-1), file(filename), flag(flag) {
+    : row(0), col(-1), file(filename), flag(flag) {
     if (!file) {
         std::cerr << "Failed to open the file." << std::endl;
         exit(1);
     }
+    move_forward();
 }
