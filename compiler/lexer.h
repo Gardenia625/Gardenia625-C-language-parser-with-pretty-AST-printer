@@ -1,3 +1,6 @@
+#ifndef HEADER_LEXER
+#define HEADER_LEXER
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -8,21 +11,38 @@
 #include <unordered_set>
 
 #include <format>
-#include <variant>
 
-using TokenValue = std::variant<int, char, std::string>;
+#include "error.h"
+
+using TokenValue = std::variant<int, char, string>;
 
 enum class TokenType {
     ERROR,
+    ENUM,
     COMMENT,
+    // number
+    INT,
     NUMBER,
     CHAR,    
     STRING,
     IDENTIFIER,
     TYPE,
     KEYWORD,
+    // keyword
+    RETURN,
+
     UNARY_OPERATOR,
     BINARY_OPERATOR,
+
+    // symbols
+    L_PARENTHESIS,
+    R_PARENTHESIS,
+
+    L_BRACE,
+    R_BRACE,
+
+    SEMICOLON,
+
     SYMBOL,
     END
 };
@@ -37,15 +57,14 @@ struct Token {
 
 class Lexer {
 public:
-    // friend Parser;
-    Lexer(std::string filename, bool flag);
+    Lexer(string filename, bool flag);
     Token next();
 private:
     std::ifstream file;
-    char c;  // the next character waiting to be processed
-    int row;
-    int col;
-    bool flag;
+    char c;         // 下一个待读取的字符
+    int row;        // c 对应的行
+    int col;        // c 对应的列
+    bool lex_flag;  // 是否打印
     void move_forward();
     Token next_token();
     Token next_identifier();
@@ -56,12 +75,17 @@ private:
     Token next_symbol();
 };
 
-// open the source file
-inline Lexer::Lexer(std::string filename, bool flag)
-    : row(0), col(-1), file(filename), flag(flag) {
+
+inline Lexer::Lexer(string filename, bool flag)
+    : row(0), col(-1), file(filename), lex_flag(flag) {
     if (!file) {
-        std::cerr << "Failed to open the file." << std::endl;
+        cerr << "Failed to open the file." << endl;
         exit(1);
+    }
+    if (lex_flag) {
+        cout << COLOR_TIP << "[ row: col] token" << COLOR_RESET << endl;
     }
     move_forward();
 }
+
+#endif

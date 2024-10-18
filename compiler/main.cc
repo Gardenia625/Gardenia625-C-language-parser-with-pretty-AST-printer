@@ -1,30 +1,30 @@
 #include "error.h"
 #include "lexer.h"
-
+#include "parser.h"
 
 
 
 int main(int argc, char* argv[]) {
-    std::string fileNameWithDir;
-    bool lexFlag = true;
-    bool parFlag = false;
+    string file_name_with_dir;
+    bool lex_flag = true;
+    bool par_flag = true;
     for (int i = 0; i < argc; ++i) {
-        std::string arg = argv[i];
+        string arg = argv[i];
         if (arg == "--lex") { 
-            // Print tokens along with the position of their last character.
-            lexFlag = true; continue;
+            // 打印 token
+            lex_flag = true;
+            continue;
+        } else if (arg == "--lex") {
+            // 打印 AST
+            par_flag = true;
+            continue;
         }
-        if (arg == "--par") { parFlag = true; continue; }
-        fileNameWithDir = arg;
+        if (arg == "--par") { par_flag = true; continue; }
+        file_name_with_dir = arg;
     }
-    Lexer lexer(fileNameWithDir, lexFlag);
-    if (lexFlag) {
-        std::cout << COLOR_TIP << "[ row: col] token" << COLOR_RESET << std::endl;
-        while (true) {
-            Token t = lexer.next();
-            if (t.type == TokenType::END) { break; }
-        }
-    }
-    error_summary(fileNameWithDir);
+    Lexer lexer(file_name_with_dir, lex_flag);
+    Parser parser(lexer, par_flag);
+    parser.program();
+    error_summary(file_name_with_dir);
     return 0;
 }

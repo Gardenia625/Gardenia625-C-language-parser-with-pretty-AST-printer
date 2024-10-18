@@ -7,5 +7,6 @@ add_executable(a
     main.cc
     error.cc
     lexer.cc
-    # parser.cc
+    AST.cc
+    parser.cc
 )

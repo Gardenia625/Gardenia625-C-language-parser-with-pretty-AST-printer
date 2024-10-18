@@ -1,44 +1,46 @@
 #include "lexer.h"
-#include "error.h"
+
 
 void Token::print() {
-    std::cout << '[' << std::format("{:>4}", std::to_string(row)) << ':'
-              << std::format("{:>4}", std::to_string(col)) << "] ";
+    cout << '[' << std::format("{:>4}", std::to_string(row)) << ':'
+         << std::format("{:>4}", std::to_string(col)) << "] ";
     switch (type) {
         case TokenType::ERROR:
-            std::cout << COLOR_ERROR << "error token" << COLOR_RESET;
+            cout << COLOR_ERROR << "error token" << COLOR_RESET;
             break;
         case TokenType::NUMBER:
-            std::cout << std::get<int>(value);
+            cout << std::get<int>(value);
             break;
         case TokenType::CHAR:
-            std::cout << '\'' << std::get<char>(value) << '\'';
+            cout << '\'' << std::get<char>(value) << '\'';
             break;
         case TokenType::STRING:
-            std::cout << '"' << std::get<char>(value) << '"' ;
+            cout << '"' << std::get<char>(value) << '"' ;
             break;
         default:
-            std::cout << std::get<std::string>(value);
+            cout << std::get<string>(value);
     }
-    std::cout << std::endl;
+    cout << endl;
 }
 
-std::unordered_map<std::string, TokenType> get_token_type {
-    // types
+std::unordered_map<string, TokenType> get_token_type {
+    // global declaration
+    // {"enum", TokenType::ENUM},
+    // type
     // {"unsigned", TokenType::TYPE},
     // {"signed", TokenType::TYPE},
     // {"char", TokenType::TYPE},
     // {"short", TokenType::TYPE},
-    {"int", TokenType::TYPE},
+    {"void", TokenType::TYPE},
+    {"int", TokenType::INT},
     // {"float", TokenType::TYPE},
     // {"double", TokenType::TYPE},
     // {"long", TokenType::TYPE},
-    {"void", TokenType::TYPE},
     // {"struct", TokenType::TYPE},
     // {"union", TokenType::TYPE},
     // {"static", TokenType::TYPE},
     // keyword
-    {"return", TokenType::KEYWORD},
+    {"return", TokenType::RETURN},
     // {"include", TokenType::KEYWORD},
     // {"sizeof", TokenType::KEYWORD},
     // {"if", TokenType::KEYWORD},
@@ -74,7 +76,7 @@ std::unordered_map<char, char> get_escape_char {
     {'0', '\0'}
 };
 
-// get the next character from the file
+// 移动到文件的下一个字符
 void Lexer::move_forward() {
     if (c == '\n') {
         ++row;
@@ -85,38 +87,38 @@ void Lexer::move_forward() {
     file.get(c);
 }
 
-// get next token and print it if needed
+// 获取下一个 token, 如有需要还会打印它
 Token Lexer::next() {
-    Token token = next_token();
-    if (flag && token.type != TokenType::END) {
-        token.print();
+    Token ret = next_token();
+    if (lex_flag && ret.type != TokenType::END) {
+        ret.print();
     }
-    return token;
+    return ret;
 }
 
 Token Lexer::next_token() {
     while (!file.eof()) {
-        if (isspace(c)) {              // ignore whitespaces
+        if (isspace(c)) {              // 跳过空格
             move_forward();
             continue;
         }
-        if (c == '/') {                // maybe a comment
+        if (c == '/') {                // 可能是注释
             Token t = next_comment();
             if (t.type != TokenType::COMMENT) {
                 return t;
             }
             continue;
         }
-        if (isdigit(c)) {              // number
+        if (isdigit(c)) {              // 数字
             return next_number();
         }
-        if (isalpha(c) || c == '_') {  // identifier of keyword
+        if (isalpha(c) || c == '_') {  // 标识符 或 关键词
             return next_identifier();
         }
-        if (c == '\'') {               // char
+        if (c == '\'') {               // 字符
             return next_char();
         }
-        if (c == '"') {               // string
+        if (c == '"') {                // 字符串
             return next_string();
         }
         return next_symbol();
@@ -130,13 +132,13 @@ Token Lexer::next_comment() {
     bool maybe_end = false;
     move_forward();
     switch(c) {
-        case '/':                  // single-line comment
+        case '/':                  // 单行注释
             while (c != '\n' && !file.eof()) {
                 move_forward();
             }
             return ret;
-        case '*':                  // multi-line comment
-            while (true) {         // can only ends with "*/"
+        case '*':                  // 多行注释 (只能以 "*/" 为结尾)
+            while (true) {
                 move_forward();
                 if (file.eof()) {
                     make_error("unterminated comment", ret.row, ret.col);
@@ -148,13 +150,12 @@ Token Lexer::next_comment() {
                 }
                 maybe_end = (c == '*');
             }
-        case '=':                  // binary operator "/="
+        default:                   // 运算符 "/" 或 "/="
             ret.type = TokenType::BINARY_OPERATOR;
-            ret.value = "/=";
-            move_forward();
-            return ret;
-        default:                   // unary operator "/"
-            ret.type = TokenType::UNARY_OPERATOR;
+            if (c == '=') {
+                ret.value = "/=";
+                move_forward();
+            }
             return ret;
     }
 }
@@ -202,14 +203,14 @@ Token Lexer::next_number() {
 
 Token Lexer::next_identifier() {
     Token ret(TokenType::IDENTIFIER, "", row, col);
-    std::string name;
+    string name;
     while((isalnum(c) || c == '_') && !file.eof()) {
         name += c;
         move_forward();
     }
     ret.value = name;
     auto it = get_token_type.find(name);
-    if (it != get_token_type.end()) {  // keyword
+    if (it != get_token_type.end()) {  // 关键词
         ret.type = it->second;
     }
     return ret;
@@ -219,7 +220,7 @@ Token Lexer::next_char() {
     Token ret(TokenType::CHAR, '\0', row, col);
     move_forward();
     ret.value = c;
-    if (c == '\\') {  // escape character
+    if (c == '\\') {  // 转义符号
         move_forward();
         auto it = get_escape_char.find(c);
         if (it != get_escape_char.end()) {
@@ -241,9 +242,9 @@ Token Lexer::next_char() {
 Token Lexer::next_string() {
     Token ret(TokenType::STRING, "", row, col);
     move_forward();
-    std::string s;
+    string s;
     while (c != '"') {
-        if (c == '\\') {  // escape character
+        if (c == '\\') {  // 转义符号
             move_forward();
             if (file.eof()) {
                 make_error("unterminated string", ret.row, ret.col);
@@ -273,11 +274,12 @@ Token Lexer::next_string() {
 }
 
 Token Lexer::next_symbol() {
-    Token ret(TokenType::SYMBOL, std::string{c}, row, col);
+    Token ret(TokenType::SYMBOL, string{c}, row, col);
     char first = c;
     move_forward();
     char second = c;
     switch (first) {
+        // 运算符
         case '+':
         case '-':
         case '*':
@@ -290,7 +292,7 @@ Token Lexer::next_symbol() {
         case '=':
             if (first == second || second == '=') {
                 ret.type = TokenType::BINARY_OPERATOR;
-                ret.value = std::string{first, second};
+                ret.value = string{first, second};
             } else {
                 ret.type = TokenType::UNARY_OPERATOR;
             }
@@ -298,31 +300,33 @@ Token Lexer::next_symbol() {
         case '!':
             if (second == '=') {
                 ret.type = TokenType::BINARY_OPERATOR;
-                ret.value = std::string{first, second};
+                ret.value = string{first, second};
             } else {
                 ret.type = TokenType::UNARY_OPERATOR;
             }
             break;
         case '~':
-        case '(':
+        case '(': { ret.type = TokenType::L_PARENTHESIS; break; }
         case '[':
         case ',':
         case '.':
         case '?':
             ret.type = TokenType::UNARY_OPERATOR;
             break;
-        case '{':
-        case '}':
-        case ')':
+        // 符号
+        case '{': { ret.type = TokenType::L_BRACE; break; }
+        case '}': { ret.type = TokenType::R_BRACE; break; }
+        case ')': { ret.type = TokenType::R_PARENTHESIS; break; }
         case ']':
         case ':':
-        case ';':
+        case ';': { ret.type = TokenType::SEMICOLON; break; }
         case '#':
+            break;
         case '\\':
-            while (isspace(c) && !file.eof()) {
+            while (isspace(c) && c != '\n' && !file.eof()) {
                 move_forward();
             }
-            if (file.eof()) {
+            if (c != '\n' or file.eof()) {
                 make_error("stray '\\'", ret.row, ret.col);
                 ret.type = TokenType::ERROR;
             }
@@ -331,7 +335,7 @@ Token Lexer::next_symbol() {
             make_error("unknown symbol", ret.row, ret.col);
             ret.type = TokenType::ERROR;
     }
-    if (ret.type != TokenType::UNARY_OPERATOR) {
+    if (ret.type == TokenType::BINARY_OPERATOR) {
         move_forward();
     }
     return ret;
