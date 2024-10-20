@@ -17,24 +17,34 @@
 using TokenValue = std::variant<int, char, string>;
 
 enum class TokenType {
-    ERROR,
-    ENUM,
+    END,
     COMMENT,
-    // number
-    INT,
+
     NUMBER,
+    // type
+    STRUCT,
+    VOID,
+    INT,
+    
     CHAR,    
     STRING,
     IDENTIFIER,
     TYPE,
-    KEYWORD,
-    // keyword
+    // keywords
     RETURN,
-
-    UNARY_OPERATOR,
-    BINARY_OPERATOR,
-
+    IF,
+    ELSE,
+    FOR,
+    WHILE,
+    DO,
+    CONTINUE,
+    BREAK,
+    SWITCH,
+    CASE,
+    DEFAULT,
+    
     // symbols
+    OPERATOR,
     L_PARENTHESIS,
     R_PARENTHESIS,
 
@@ -42,9 +52,6 @@ enum class TokenType {
     R_BRACE,
 
     SEMICOLON,
-
-    SYMBOL,
-    END
 };
 
 struct Token {
@@ -53,6 +60,9 @@ struct Token {
     int row;
     int col;
     void print();
+    bool is_operator(string s) {
+        return (type == TokenType::OPERATOR) && (s == std::get<string>(value));
+    }
 };
 
 class Lexer {
@@ -61,11 +71,11 @@ public:
     Token next();
 private:
     std::ifstream file;
-    char c;         // 下一个待读取的字符
-    int row;        // c 对应的行
-    int col;        // c 对应的列
-    bool lex_flag;  // 是否打印
-    void move_forward();
+    char c;               // 下一个待读取的字符
+    int row;              // c 所在的行
+    int col;              // c 所在的列
+    bool lex_flag;        // 是否打印
+    void move_forward();  // 读取下一个字符
     Token next_token();
     Token next_identifier();
     Token next_number();
@@ -79,7 +89,8 @@ private:
 inline Lexer::Lexer(string filename, bool flag)
     : row(0), col(-1), file(filename), lex_flag(flag) {
     if (!file) {
-        cerr << "Failed to open the file." << endl;
+        cerr << COLOR_ERROR << "error: " << COLOR_RESET
+             << "Failed to open the file." << endl;
         exit(1);
     }
     if (lex_flag) {

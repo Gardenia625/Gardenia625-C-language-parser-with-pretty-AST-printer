@@ -25,6 +25,5 @@ int main(int argc, char* argv[]) {
     Lexer lexer(file_name_with_dir, lex_flag);
     Parser parser(lexer, par_flag);
     parser.program();
-    error_summary(file_name_with_dir);
     return 0;
 }

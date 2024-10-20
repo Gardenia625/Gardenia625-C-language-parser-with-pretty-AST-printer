@@ -42,17 +42,19 @@ private:
 class Variable: public AST {
 public:
     Variable(CType t, string s): type(t), name(s) {}
+    void init(TokenValue v) { value = v; }
     void print(int tabs);
 protected:
     CType type;
     string name;
+    TokenValue value;
 };
 
 
 
 class Expression: public AST {
 public:
-    Expression(int val): val(val) {}
+    Expression(int v): val(v) {}
     void print(int tabs);
 private:
     int val;
@@ -67,7 +69,7 @@ class Statement: public AST {
 
 class ReturnStatement: public Statement {
 public:
-    ReturnStatement(unique_ptr<Expression> p) : exp(std::move(p)) {}
+    ReturnStatement(unique_ptr<Expression> p): exp(std::move(p)) {}
     void print(int tabs);
 private:
     unique_ptr<Expression> exp;
@@ -87,12 +89,14 @@ private:
 };
 
 // function
-class Parameter: public Variable {
+class Parameter: public AST {
 public:
-    Parameter(): Variable(CType::VOID, ""), default_value() {}
-    Parameter(CType t, string s) : Variable(t, s), default_value() {}
+    Parameter(): type(CType::VOID), name(""), default_value() {}
+    Parameter(CType t, string s): type(t), name(s), default_value() {}
     void print(int tabs);
 private:
+    CType type;
+    string name;
     bool default_flag = false;
     Literal default_value;
 };
@@ -101,11 +105,12 @@ class Function: public AST {
 public:
     Function(CType t, string s): ret_type(t), name(s) {}
     void add_parameter(unique_ptr<Parameter> p) { parameters.push_back(std::move(p)); }
-    void set_body(unique_ptr<Block> p) { body = std::move(p); }
+    void set_body(unique_ptr<Block> p) { body = std::move(p); defined = true; }
     void print(int tabs);
 private:
     CType ret_type;
     string name;
     vector<unique_ptr<Parameter>> parameters;
     unique_ptr<Block> body;
+    bool defined = false;
 };

@@ -1,3 +1,4 @@
+#include<variant>
 
 #include "error.h"
 #include "lexer.h"
