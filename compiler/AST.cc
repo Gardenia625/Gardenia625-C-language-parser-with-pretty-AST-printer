@@ -13,12 +13,12 @@ void CType::print(int tabs) {
         case CS::UNSIGNED: cout << "unsigned "; break;
     }
     switch (type) {
-        case CS::STRUCT: cout << "struct " << name; break;
-        case CS::VOID: cout << "void "; break;
-        case CS::CHAR: cout << "char "; break;
-        case CS::INT: cout << "int "; break;
-        case CS::LONG: cout << "long "; break;
-        case CS::DOUBLE: cout << "double "; break;
+        case CS::STRUCT: cout << "struct" << name; break;
+        case CS::VOID: cout << "void"; break;
+        case CS::CHAR: cout << "char"; break;
+        case CS::INT: cout << "int"; break;
+        case CS::LONG: cout << "long"; break;
+        case CS::DOUBLE: cout << "double"; break;
     }
 }
 
@@ -27,7 +27,7 @@ void CDecl::print(int tabs) {
     if (!parameters.empty()) {
         cout << "(";
         for (auto it = parameters.begin(); it != parameters.end(); ++it) {
-            (*it)->print(tabs);
+            it->print(tabs);
             if (it + 1 < parameters.end()) {
                 cout << ", ";
             }
@@ -43,6 +43,15 @@ void CDecl::print(int tabs) {
     }
 }
 
+void Parameter::print(int tabs) {
+    type.print();
+    if (!decl.name.empty()) {
+        cout << " ";
+        decl.print();
+    }
+}
+
+
 // AST
 void Program::print(int tabs) {
     cout << string(2 * tabs, ' ') << "Program(" << endl;
@@ -52,8 +61,10 @@ void Program::print(int tabs) {
     cout << string(2 * tabs, ' ') << ")" << endl;
 }
 
+
+// expression
 void Expression::print(int tabs) {
-    cout << val << endl;
+    cout << string(2 * tabs, ' ') << val << endl;
 }
 
 
@@ -68,7 +79,7 @@ void Statement::print(int tabs) {
             cout << "break";
             return;
     }
-    cout << ';' << endl;
+    cout << ";" << endl;
 }
 
 void ReturnStatement::print(int tabs) {
@@ -78,25 +89,41 @@ void ReturnStatement::print(int tabs) {
 }
 
 void IfStatement::print(int tabs) {
-    cout << string(2 * tabs, ' ') << "If( " << endl;
+    cout << string(2 * tabs++, ' ') << "If: " << endl;
+    cout << string(2 * tabs, ' ') << "cond = ";
     cond->print(tabs + 1);
     cout << " )" << endl;
-    cout << string(2 * tabs, ' ') << "Then(" << endl;
+    cout << string(2 * tabs, ' ') << "then = " << endl;
     then->print(tabs + 1);
-    cout << string(2 * tabs, ' ') << ")" << endl;
     if (_else) {
-        cout << string(2 * tabs, ' ') << "Else(" << endl;
+        cout << string(2 * tabs, ' ') << "else: " << endl;
         _else->print(tabs + 1);
     }
-    cout << string(2 * tabs, ' ') << ")" << endl;
+}
+
+void WhileStatement::print(int tabs) {
+
+}
+
+void DoStatement::print(int tabs) {
+
+}
+
+void ForStatement::print(int tabs) {
+
 }
 
 void Block::print(int tabs) {
+    cout << string(2 * tabs, ' ') << "Block(" << endl;
     for (auto& ptr : items) {
         ptr->print(tabs + 1);
     }
+    cout << string(2 * tabs, ' ') << ")" << endl;
 }
 
+void ExpStatement::print(int tabs) {
+    exp->print(tabs);
+}
 
 // declaration
 void Initializer::print(int tabs) {
@@ -119,23 +146,24 @@ void Variable::print(int tabs) {
          << string(2 * tabs, ' ') << "type: ";
     type.print();
     cout << endl << string(2 * tabs, ' ') << "declarator: ";
-    decl->print(tabs);
+    decl.print(tabs);
     if (initializer) {
         cout << endl << string(2 * tabs, ' ') << "initializer: ";
         initializer->print(tabs);
     }
     cout << endl << string(2 * --tabs, ' ') << endl;
+    cout << string(2 * tabs, ' ') << ")" << endl;
 }
 
 void Function::print(int tabs) {
     cout << string(2 * tabs++, ' ') << "Function(" << endl
-         << string(2 * tabs, ' ') << "signature: ";
+         << string(2 * tabs, ' ') << "signature = ";
     type.print();
-    decl->print(tabs);
-    cout << endl << string(2 * tabs, ' ') << "body: (" << endl; 
+    cout << " ";
+    decl.print(tabs);
+    cout << endl << string(2 * tabs, ' ') << "body = " << endl; 
     body->print(tabs + 1);
-    cout << string(2 * tabs--, ' ') << ")" << endl;
-    cout << string(2 * tabs, ' ') << ")" << endl;
+    cout << string(2 * --tabs, ' ') << ")" << endl;
 }
 
 

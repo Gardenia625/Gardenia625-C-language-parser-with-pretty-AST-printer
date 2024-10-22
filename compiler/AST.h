@@ -47,16 +47,16 @@ struct CDecl {
     void print(int tabs=0);
     string name;
     int depth = 0;  // pointer depth
-    vector<unique_ptr<Parameter>> parameters;
+    vector<Parameter> parameters;
     vector<unique_ptr<Expression>> indexes;
 };
 
 struct Parameter {
     Parameter() = default;
-    Parameter(CType t, unique_ptr<CDecl> d) : type(t), decl(std::move(d)) {}
+    Parameter(CType t, CDecl d) : type(t), decl(std::move(d)) {}
     void print(int tabs);
     CType type;
-    unique_ptr<CDecl> decl;
+    CDecl decl;
 };
 
 // abstract syntax tree
@@ -202,27 +202,25 @@ private:
 
 class Variable : public AST {
 public:
-    Variable(CType t, unique_ptr<CDecl> d) : type(t) {
-        decl = std::move(d);
-    }
+    Variable(CType t, CDecl d) : type(t), decl(std::move(d)) {}
     void init(unique_ptr<Initializer> p) { initializer = std::move(p); }
     void print(int tabs);
 private:
     CType type;
-    unique_ptr<CDecl> decl;
+    CDecl decl;
     unique_ptr<Initializer> initializer;
 };
 
 class Function : public AST {
 public:
-    Function(CType t, unique_ptr<CDecl> d) : type(t) {
+    Function(CType t, CDecl d) : type(t) {
         decl = std::move(d);
     }
     void set_body(unique_ptr<Block> p) { body = std::move(p); }
     void print(int tabs);
 private:
     CType type;
-    unique_ptr<CDecl> decl;
+    CDecl decl;
     unique_ptr<Block> body;
 };
 

@@ -8,6 +8,7 @@ void Parser::match(TT t) {
         return;
     }
     string message = "expected a";
+    parser_error("match error", token.row);
     // switch (t) {
     //     case 
     // }
@@ -34,8 +35,8 @@ unique_ptr<AST> Parser::declaration(bool global) {
         // return struct_declaration();
     }
     CType type = specifier(global);
-    unique_ptr<CDecl> decl = declarator();
-    if (decl->parameters.empty()) {
+    CDecl decl = declarator();
+    if (decl.parameters.empty()) {
         // variable declaration
         unique_ptr<Variable> ret = make_unique<Variable>(type, std::move(decl));
         if (token.is_operator("=")) {
@@ -46,7 +47,7 @@ unique_ptr<AST> Parser::declaration(bool global) {
         return ret;
     } else if (global) {
         // function declaration
-        unique_ptr<Function> ret = make_unique<Function>(type, decl);
+        unique_ptr<Function> ret = make_unique<Function>(type, std::move(decl));
         switch(consume().type) {
             case TT::L_BRACE:
                 ret->set_body(std::move(block()));
@@ -59,6 +60,7 @@ unique_ptr<AST> Parser::declaration(bool global) {
     } else {
         parser_error("invalid declaration", token.row);
     }
+    return nullptr;
 }
 
 // <specifier> ::= <type-specifier> | "static" | "extern"
@@ -81,29 +83,29 @@ CType Parser::specifier(bool global) {
 //                    | "struct" <identifier>
 CType Parser::type_specifier() {
     int line = token.row;
+    CS modifier = CS::NONE;
+    if (token.type == TT::UNSIGNED) {
+        modifier = CS::UNSIGNED;
+        consume();
+        line = token.row;
+    }
     switch (consume().type) {
         case TT::VOID:
             return CType();
         case TT::DOUBLE:
             return CType(CS::DOUBLE);
-        case TT::UNSIGNED:
-            line = token.row;
-            switch (consume().type) {
-                case TT::CHAR:
-                    return CType(CS::UNSIGNED, CS::CHAR);
-                case TT::INT:
-                    return CType(CS::UNSIGNED, CS::INT);
-                case TT::LONG:
-                    return CType(CS::UNSIGNED, CS::LONG);
-                default:
-                    parser_error("invalid type specifier", line);
-            }
         case TT::STRUCT:
             return CType(CS::STRUCT, identifier());
+        case TT::CHAR:
+            return CType(modifier, CS::CHAR);
+        case TT::INT:
+            return CType(modifier, CS::INT);
+        case TT::LONG:
+            return CType(modifier, CS::LONG);
         default:
             parser_error("invalid type specifier", line);
-            return;
     }
+    return CType();
 }
 
 // <declarator> ::= "*" <declarator> | <direct-declarator>
@@ -141,10 +143,10 @@ CDecl Parser::declarator() {
 }
 
 // <parameter-list> ::= "(" "void" ")" | "(" <parameter> { "," <parameter> } ")"
-vector<unique_ptr<Parameter>> Parser::parameter_list() {
-    vector<unique_ptr<Parameter>> ret;
+vector<Parameter> Parser::parameter_list() {
+    vector<Parameter> ret;
     if (token.type == TT::VOID) {
-        ret.push_back(make_unique<Parameter>());
+        ret.push_back(Parameter());
         consume();  // "void"
     } else {
         while (true) {
@@ -161,10 +163,10 @@ vector<unique_ptr<Parameter>> Parser::parameter_list() {
 }
 
 // <parameter> ::= <type-specifier> <declarator>
-unique_ptr<Parameter> Parser::parameter() {
+Parameter Parser::parameter() {
     CType t = type_specifier();
-    unique_ptr<CDecl> d = make_unique<CDecl>(declarator());
-    return make_unique<Parameter>(t, d);
+    CDecl d = CDecl(declarator());
+    return Parameter(t, std::move(d));
 }
 
 // <initializer> ::= <exp> | "{" [ <initializer-list> ] "}"
@@ -261,9 +263,9 @@ unique_ptr<Statement> Parser::statement() {
     } else {
         unique_ptr<ExpStatement> ret = make_unique<ExpStatement>(expression());
         match(TT::SEMICOLON);
-        
         return ret;
     }
+    return nullptr;
 }
 
 
@@ -286,7 +288,8 @@ unique_ptr<Block> Parser::block() {
 // expression ::= int
 // int ::= ? A constant token ?
 unique_ptr<Expression> Parser::expression() {
-
+    unique_ptr<Expression> ret = make_unique<Expression>(stoi(consume().value));
+    return ret;
 }
 
 string Parser::identifier() {

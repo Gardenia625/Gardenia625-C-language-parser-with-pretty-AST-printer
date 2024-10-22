@@ -26,8 +26,8 @@ private:
     CType specifier(bool global);
     CType type_specifier();
     CDecl declarator();
-    vector<unique_ptr<Parameter>> parameter_list();
-    unique_ptr<Parameter> parameter();
+    vector<Parameter> parameter_list();
+    Parameter parameter();
     unique_ptr<Initializer> initializer();
 
     unique_ptr<Statement> statement();

@@ -2,14 +2,14 @@
 
 
 void Token::print() {
-    cout << '[' << std::format("{:>4}", std::to_string(row)) << ':'
+    cout << "[" << std::format("{:>4}", std::to_string(row)) << ":"
          << std::format("{:>4}", std::to_string(col)) << "] ";
     switch (type) {
         case TT::CHAR:
-            cout << '\'' << value << '\'';
+            cout << "'" << value << "'";
             break;
         case TT::STRING:
-            cout << '"' << value << '"';
+            cout << "\"" << value << "\"";
             break;
         default:
             cout << value;
@@ -120,7 +120,7 @@ Token Lexer::next_token() {
         return next_symbol();          // 运算符或其它符号
     }
     file.close();
-    return Token(TT::END, 0, row, col);
+    return Token(TT::END, "", row, col);
 }
 
 Token Lexer::next_comment() {
