@@ -14,19 +14,23 @@
 
 #include "error.h"
 
-using TokenValue = std::variant<int, char, string>;
-
-enum class TokenType {
+// token type
+enum class TT {
     END,
     COMMENT,
-
+    HASH,
     NUMBER,
     // type
     STRUCT,
+    STATIC,
+    EXTERN,
     VOID,
+    CHAR,
     INT,
-    
-    CHAR,    
+    LONG,
+    DOUBLE,
+    UNSIGNED,
+
     STRING,
     IDENTIFIER,
     TYPE,
@@ -42,26 +46,37 @@ enum class TokenType {
     SWITCH,
     CASE,
     DEFAULT,
-    
     // symbols
     OPERATOR,
     L_PARENTHESIS,
     R_PARENTHESIS,
-
+    L_BRACKET,
+    R_BRACKET,
     L_BRACE,
     R_BRACE,
-
+    COMMA,
     SEMICOLON,
 };
 
 struct Token {
-    TokenType type;
-    TokenValue value;
+    TT type;
+    string value;
     int row;
     int col;
     void print();
     bool is_operator(string s) {
-        return (type == TokenType::OPERATOR) && (s == std::get<string>(value));
+        return (type == TT::OPERATOR) && (s == value);
+    }
+    bool is_specifier() {
+        return type == TT::STATIC
+            || type == TT::EXTERN
+            || type == TT::VOID
+            || type == TT::CHAR
+            || type == TT::INT
+            || type == TT::LONG
+            || type == TT::UNSIGNED
+            || type == TT::DOUBLE
+            || type == TT::STRUCT;
     }
 };
 

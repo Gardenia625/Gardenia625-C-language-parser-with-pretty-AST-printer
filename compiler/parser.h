@@ -1,5 +1,3 @@
-
-
 #include "error.h"
 #include "lexer.h"
 #include "AST.h"
@@ -21,12 +19,23 @@ private:
         token = lexer.next();
         return ret;
     };
-    void match(TokenType t);  // 确保当前 token 的类型为 t, 不是就报错
+    void match(TT t);  // 确保当前 token 的类型为 t, 不是就报错
     bool is_operator(string s) { return token.is_operator(s); }
-    unique_ptr<AST> global_declaration();
+    bool is_specifier() { return token.is_specifier(); }
+    unique_ptr<AST> declaration(bool global);
+    CType specifier(bool global);
+    CType type_specifier();
+    CDecl declarator();
+    vector<unique_ptr<Parameter>> parameter_list();
+    unique_ptr<Parameter> parameter();
+    unique_ptr<Initializer> initializer();
+
     unique_ptr<Statement> statement();
     unique_ptr<Block> block();
-    CType specifier();
+
+
+    unique_ptr<Expression> expression();
+
     string identifier();
 
 

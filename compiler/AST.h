@@ -7,19 +7,66 @@
 using std::unique_ptr;
 using std::make_unique;
 
-
-enum class CType {
+// specifier
+enum class CS{
+    NONE,
+    // storage class
+    STATIC,
+    EXTERN,
+    // type
     VOID,
-    INT,
+    CHAR,    // 1 Byte
+    INT,     // 2 Byte
+    LONG,    // 4 Byte
+    DOUBLE,  // 8 Byte
+    // modifier
+    UNSIGNED,
+    // else
+    STRUCT
 };
 
+// specifier combination
+struct CType {
+    CType() = default;
+    CType(CS t): type(t) {}
+    CType(CS m, CS t) : modifier(m), type(t) {}
+    CType(CS t, string s) : type(t), name(s) {}
+    void print(int tabs=0);
+    CS storage = CS::NONE;
+    CS modifier = CS::NONE;
+    CS type = CS::VOID;
+    string name = "";  // identifier of struct
+};
+
+// declarator
+class Parameter;
+class Expression;
+struct CDecl {
+    CDecl() = default;
+    CDecl(string s) : name(s) {}
+    void print(int tabs=0);
+    string name;
+    int depth = 0;  // pointer depth
+    vector<unique_ptr<Parameter>> parameters;
+    vector<unique_ptr<Expression>> indexes;
+};
+
+struct Parameter {
+    Parameter() = default;
+    Parameter(CType t, unique_ptr<CDecl> d) : type(t), decl(std::move(d)) {}
+    void print(int tabs);
+    CType type;
+    unique_ptr<CDecl> decl;
+};
+
+// abstract syntax tree
 class AST {
 public:
     virtual ~AST() = default;
     virtual void print(int tabs) = 0;
 };
 
-class Program: public AST {
+class Program : public AST {
 public:
     void print(int tabs);
     Program& operator+=(unique_ptr<AST> other) {
@@ -30,87 +77,159 @@ private:
     vector<unique_ptr<AST>> decls;
 };
 
-class Literal: public AST {
+
+// expression
+class Expression : public AST {
 public:
-    Literal(): type(CType::INT), value(0) {}
-    void print(int tabs) {}; // 待完成
-private:
-    CType type;
-    TokenValue value;
-};
-
-class Variable: public AST {
-public:
-    Variable(CType t, string s): type(t), name(s) {}
-    void init(TokenValue v) { value = v; }
-    void print(int tabs);
-protected:
-    CType type;
-    string name;
-    TokenValue value;
-};
-
-
-
-class Expression: public AST {
-public:
-    Expression(int v): val(v) {}
+    Expression(int v) : val(v) {}
     void print(int tabs);
 private:
     int val;
 };
 
-
-// statement
-class Statement: public AST {
-
-
+// statement type
+enum class ST {
+    NONE,
+    RETURN,
+    IF,
+    WHILE,
+    DO,
+    FOR,
+    CONTINUE,
+    BREAK,
+    BLOCK,
+    EXP
 };
 
-class ReturnStatement: public Statement {
+// statement
+class Statement : public AST {
 public:
-    ReturnStatement(unique_ptr<Expression> p): exp(std::move(p)) {}
+    Statement() = default;
+    Statement(ST st) : statement_type(st) {}
+    ST type() { return statement_type; }
+    void print(int tabs);
+protected:
+    ST statement_type = ST::NONE;
+};
+
+class ReturnStatement : public Statement {
+public:
+    ReturnStatement(unique_ptr<Expression> e) : exp(std::move(e)) {}
+    void print(int tabs);
+private:
+    unique_ptr<Expression> exp;
+};
+
+class IfStatement : public Statement {
+public:
+    IfStatement(unique_ptr<Expression> c, unique_ptr<Statement> t) : cond(std::move(c)), then(std::move(t)) {}
+    void add_else(unique_ptr<Statement> p) { _else = std::move(p); }
+    void print(int tabs);
+private:
+    unique_ptr<Expression> cond;
+    unique_ptr<Statement> then;
+    unique_ptr<Statement> _else;
+};
+
+class WhileStatement : public Statement {
+public:
+    WhileStatement(unique_ptr<Expression> c, unique_ptr<Statement> s) : cond(std::move(c)), stmt(std::move(s)) {}
+    void print(int tabs);
+private:
+    unique_ptr<Expression> cond;
+    unique_ptr<Statement> stmt;
+};
+
+class DoStatement : public Statement {
+public:
+    DoStatement(unique_ptr<Statement> s, unique_ptr<Expression> c) : stmt(std::move(s)), cond(std::move(c)) {}
+    void print(int tabs);
+private:
+    unique_ptr<Statement> stmt;
+    unique_ptr<Expression> cond;
+};
+
+class ForStatement : public Statement {
+public:
+    ForStatement() = default;
+    void add_init(unique_ptr<AST> f) { for_init = std::move(f); }
+    void add_cond(unique_ptr<Expression> c) { cond = std::move(c); }
+    void add_inc(unique_ptr<Expression> i) { inc = std::move(i); }
+    void add_stmt(unique_ptr<Statement> s) { stmt = std::move(s); }
+    void print(int tabs);
+private:
+    unique_ptr<AST> for_init;
+    unique_ptr<Expression> cond;
+    unique_ptr<Expression> inc;
+    unique_ptr<Statement> stmt;
+};
+
+class Block : public Statement {
+public:
+    Block() = default;
+    Block& operator+=(unique_ptr<AST> other) {
+        items.push_back(std::move(other));
+        return *this;
+    }
+    void print(int tabs);
+private:
+    vector<unique_ptr<AST>> items;
+};
+
+class ExpStatement : public Statement {
+public:
+    ExpStatement(unique_ptr<Expression> e) : exp(std::move(e)) {}
     void print(int tabs);
 private:
     unique_ptr<Expression> exp;
 };
 
 
-class Block: public AST {
+// declaration
+class Initializer : public AST {
 public:
-    Block() = default;
-    Block& operator+=(unique_ptr<Statement> other) {
-        items.push_back(std::move(other));
+    Initializer() = default;
+    Initializer(unique_ptr<Expression> p) { exp = std::move(p); }
+    Initializer& operator+=(unique_ptr<Initializer> other) {
+        init_list.push_back(std::move(other));
         return *this;
     }
     void print(int tabs);
 private:
-    vector<unique_ptr<Statement>> items;
+    unique_ptr<Expression> exp;
+    vector<unique_ptr<Initializer>> init_list;
 };
 
-// function
-class Parameter: public AST {
+class Variable : public AST {
 public:
-    Parameter(): type(CType::VOID), name(""), default_value() {}
-    Parameter(CType t, string s): type(t), name(s), default_value() {}
+    Variable(CType t, unique_ptr<CDecl> d) : type(t) {
+        decl = std::move(d);
+    }
+    void init(unique_ptr<Initializer> p) { initializer = std::move(p); }
     void print(int tabs);
 private:
     CType type;
-    string name;
-    bool default_flag = false;
-    Literal default_value;
+    unique_ptr<CDecl> decl;
+    unique_ptr<Initializer> initializer;
 };
 
-class Function: public AST {
+class Function : public AST {
 public:
-    Function(CType t, string s): ret_type(t), name(s) {}
-    void add_parameter(unique_ptr<Parameter> p) { parameters.push_back(std::move(p)); }
-    void set_body(unique_ptr<Block> p) { body = std::move(p); defined = true; }
+    Function(CType t, unique_ptr<CDecl> d) : type(t) {
+        decl = std::move(d);
+    }
+    void set_body(unique_ptr<Block> p) { body = std::move(p); }
     void print(int tabs);
 private:
-    CType ret_type;
-    string name;
-    vector<unique_ptr<Parameter>> parameters;
+    CType type;
+    unique_ptr<CDecl> decl;
     unique_ptr<Block> body;
-    bool defined = false;
+};
+
+class Struct : public AST {
+public:
+    Struct(string s) : name(s) {}
+    void print(int tabs);
+private:
+    string name;
 };

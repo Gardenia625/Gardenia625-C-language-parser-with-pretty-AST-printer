@@ -19,7 +19,10 @@ int main(int argc, char* argv[]) {
             par_flag = true;
             continue;
         }
-        if (arg == "--par") { par_flag = true; continue; }
+        if (arg == "--par") {
+            par_flag = true;
+            continue;
+        }
         file_name_with_dir = arg;
     }
     Lexer lexer(file_name_with_dir, lex_flag);

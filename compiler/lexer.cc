@@ -5,53 +5,49 @@ void Token::print() {
     cout << '[' << std::format("{:>4}", std::to_string(row)) << ':'
          << std::format("{:>4}", std::to_string(col)) << "] ";
     switch (type) {
-        case TokenType::NUMBER:
-            cout << std::get<int>(value);
+        case TT::CHAR:
+            cout << '\'' << value << '\'';
             break;
-        case TokenType::CHAR:
-            cout << '\'' << std::get<char>(value) << '\'';
-            break;
-        case TokenType::STRING:
-            cout << '"' << std::get<char>(value) << '"' ;
+        case TT::STRING:
+            cout << '"' << value << '"';
             break;
         default:
-            cout << std::get<string>(value);
+            cout << value;
     }
     cout << endl;
 }
 
-std::unordered_map<string, TokenType> get_token_type {
-    // {"enum", TokenType::ENUM},
+std::unordered_map<string, TT> get_token_type {
     // type
-    {"struct", TokenType::STRUCT},
-    // {"unsigned", TokenType::TYPE},
-    // {"signed", TokenType::TYPE},
-    // {"char", TokenType::TYPE},
-    // {"short", TokenType::TYPE},
-    {"void", TokenType::VOID},
-    {"int", TokenType::INT},
-    // {"float", TokenType::TYPE},
-    // {"double", TokenType::TYPE},
-    // {"long", TokenType::TYPE},
+    {"static", TT::STATIC},
+    {"extern", TT::EXTERN},
+    {"void", TT::VOID},
+    {"char", TT::CHAR},
+    {"int", TT::INT},
+    {"long", TT::LONG},
+    {"double", TT::DOUBLE},
+    {"unsigned", TT::UNSIGNED},
+    {"struct", TT::STRUCT},
     
+    // {"enum", TokenType::ENUM},
+    // {"float", TokenType::TYPE},
     // {"union", TokenType::TYPE},
-    // {"static", TokenType::STATIC},
-    // {"extern", TokenType::EXTERN},
+
     // keyword
-    {"return", TokenType::RETURN},
-    {"if", TokenType::IF},
-    {"else", TokenType::ELSE},
-    {"for", TokenType::FOR},
-    {"while", TokenType::WHILE},
-    {"do", TokenType::DO},
-    {"continue", TokenType::CONTINUE},
-    {"break", TokenType::BREAK},
-    {"switch", TokenType::SWITCH},
-    {"case", TokenType::CASE},
-    {"default", TokenType::DEFAULT},
+    {"return", TT::RETURN},
+    {"if", TT::IF},
+    {"else", TT::ELSE},
+    {"for", TT::FOR},
+    {"while", TT::WHILE},
+    {"do", TT::DO},
+    {"continue", TT::CONTINUE},
+    {"break", TT::BREAK},
+    {"switch", TT::SWITCH},
+    {"case", TT::CASE},
+    {"default", TT::DEFAULT},
 
     
-    {"sizeof", TokenType::OPERATOR},
+    {"sizeof", TT::OPERATOR},
     
     // {"include", TokenType::KEYWORD},
     // {"goto", TokenType::KEYWORD},
@@ -71,8 +67,8 @@ std::unordered_map<char, char> get_escape_char {
     {'t', '\t'},
     {'b', '\b'},
     {'f', '\f'},
-    {'a', '\a'},
     {'v', '\v'},
+    {'a', '\a'},
     {'0', '\0'}
 };
 
@@ -90,7 +86,7 @@ void Lexer::move_forward() {
 // 获取下一个 token, 如有需要还会打印它
 Token Lexer::next() {
     Token ret = next_token();
-    if (lex_flag && ret.type != TokenType::END) {
+    if (lex_flag && ret.type != TT::END) {
         ret.print();
     }
     return ret;
@@ -104,7 +100,7 @@ Token Lexer::next_token() {
         }
         if (c == '/') {                // 可能是注释
             Token t = next_comment();
-            if (t.type != TokenType::COMMENT) {
+            if (t.type != TT::COMMENT) {
                 return t;
             }
             continue;
@@ -124,11 +120,11 @@ Token Lexer::next_token() {
         return next_symbol();          // 运算符或其它符号
     }
     file.close();
-    return Token(TokenType::END, 0, row, col);
+    return Token(TT::END, 0, row, col);
 }
 
 Token Lexer::next_comment() {
-    Token ret(TokenType::COMMENT, "/", row, col);
+    Token ret(TT::COMMENT, "/", row, col);
     bool maybe_end = false;
     move_forward();
     switch(c) {
@@ -149,7 +145,7 @@ Token Lexer::next_comment() {
                 maybe_end = (c == '*');
             }
         default:            // 运算符 "/" 或 "/="
-            ret.type = TokenType::OPERATOR;
+            ret.type = TT::OPERATOR;
             if (c == '=') {
                 ret.value = "/=";
                 move_forward();
@@ -164,9 +160,8 @@ std::unordered_set<char> end_of_number {
 };
 
 Token Lexer::next_number() {
-    Token ret(TokenType::NUMBER, 0, row, col);
+    Token ret(TT::NUMBER, "", row, col);
     bool is_float = false;
-    int v = 0;
     // if (c == '.' || c == 'e' || c == 'E' || c == 'p' || c == 'P') {
     //     is_float == true;
     // }
@@ -182,8 +177,7 @@ Token Lexer::next_number() {
     // }
 
     while (isdigit(c)) {
-        v *= 10;
-        v += c - '0';
+        ret.value += c;
         move_forward();
     }
     auto it = end_of_number.find(c);
@@ -194,19 +188,16 @@ Token Lexer::next_number() {
             it = end_of_number.find(c);
         } while (it == end_of_number.end() && !file.eof());
     }
-    ret.value = v;
     return ret;
 }
 
 Token Lexer::next_identifier() {
-    Token ret(TokenType::IDENTIFIER, "", row, col);
-    string name;
+    Token ret(TT::IDENTIFIER, "", row, col);
     while((isalnum(c) || c == '_') && !file.eof()) {
-        name += c;
+        ret.value += c;
         move_forward();
     }
-    ret.value = name;
-    auto it = get_token_type.find(name);
+    auto it = get_token_type.find(ret.value);
     if (it != get_token_type.end()) {  // 关键词
         ret.type = it->second;
     }
@@ -214,7 +205,7 @@ Token Lexer::next_identifier() {
 }
 
 Token Lexer::next_char() {
-    Token ret(TokenType::CHAR, '\0', row, col);
+    Token ret(TT::CHAR, "", row, col);
     move_forward();
     ret.value = c;
     if (c == '\\') {  // 转义符号
@@ -235,7 +226,7 @@ Token Lexer::next_char() {
 }
 
 Token Lexer::next_string() {
-    Token ret(TokenType::STRING, "", row, col);
+    Token ret(TT::STRING, "", row, col);
     move_forward();
     string s;
     while (c != '"') {
@@ -267,7 +258,7 @@ Token Lexer::next_string() {
 }
 
 Token Lexer::next_symbol() {
-    Token ret(TokenType::OPERATOR, string{c}, row, col);
+    Token ret(TT::OPERATOR, string{c}, row, col);
     bool unary = true;
     char first = c;
     move_forward();
@@ -275,7 +266,6 @@ Token Lexer::next_symbol() {
     switch (first) {
         // 运算符
         case '+':
-        case '-':
         case '*':
         case '%':
         case '&':
@@ -295,23 +285,28 @@ Token Lexer::next_symbol() {
                 unary = false;
             }
             break;
+        
+        case '-':
+            if (second == '-' || second == '=' || second == '>') {
+                ret.value = string{first, second};
+                unary = false;
+            }
+            break;
         case '~':
-        case ',':
         case '.':
         case '?':
         case ':':
             break;
         // 符号
-        case '(': { ret.type = TokenType::L_PARENTHESIS; break; }
-        case ')': { ret.type = TokenType::R_PARENTHESIS; break; }
-        case '[':
-        case ']':
-        case '{': { ret.type = TokenType::L_BRACE; break; }
-        case '}': { ret.type = TokenType::R_BRACE; break; }
-        
-        case ';': { ret.type = TokenType::SEMICOLON; break; }
-        case '#':
-            break;
+        case '(': { ret.type = TT::L_PARENTHESIS; break; }
+        case ')': { ret.type = TT::R_PARENTHESIS; break; }
+        case '[': { ret.type = TT::L_BRACKET; break; }
+        case ']': { ret.type = TT::R_BRACKET; break; }
+        case '{': { ret.type = TT::L_BRACE; break; }
+        case '}': { ret.type = TT::R_BRACE; break; }
+        case ',': { ret.type = TT::COMMA; break; }
+        case ';': { ret.type = TT::SEMICOLON; break; }
+        case '#': { ret.type = TT::HASH; break; }
         case '\\':
             move_forward();
             if (c == '\n') {  // 续行符
