@@ -12,14 +12,14 @@ public:
     unique_ptr<Program> program();
 private:
     Lexer& lexer;
-    Token token;    // peek
-    bool par_flag;  // 是否打印 AST
+    Token token;    // current token, i.e., the next token to be used
+    bool par_flag;  // whether to print the AST
     Token consume() {
         Token ret = token;
         token = lexer.next();
         return ret;
     };
-    void match(TT t);  // 确保当前 token 的类型为 t, 不是就报错
+    void match(TT t);
     bool is_operator(string s) { return token.is_operator(s); }
     bool is_specifier() { return token.is_specifier(); }
     unique_ptr<AST> declaration(bool global);

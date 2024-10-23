@@ -2,16 +2,30 @@
 #include "error.h"
 #include "parser.h"
 
+// Ensure the current token is of the specified type and consume it
 void Parser::match(TT t) {
     if (token.type == t) {
         consume();
-        return;
+    } else {
+        switch (t) {
+            case TT::L_PARENTHESIS:
+                parser_error("expected '('", token.row);
+            case TT::R_PARENTHESIS:
+                parser_error("expected ')'", token.row);
+            case TT::L_BRACKET:
+                parser_error("expected '['", token.row);
+            case TT::R_BRACKET:
+                parser_error("expected ']'", token.row);
+            case TT::L_BRACE:
+                parser_error("expected '{'", token.row);
+            case TT::R_BRACE:
+                parser_error("expected '}'", token.row);
+            case TT::COMMA:
+                parser_error("expected ','", token.row);
+            case TT::SEMICOLON:
+                parser_error("expected ';'", token.row);
+        }
     }
-    string message = "expected a";
-    parser_error("match error", token.row);
-    // switch (t) {
-    //     case 
-    // }
 }
 
 // program ::= {<global-declaration>}
@@ -268,7 +282,6 @@ unique_ptr<Statement> Parser::statement() {
     }
     return nullptr;
 }
-
 
 // <block> ::= "{" { <block-item> } "}"
 // <block-item> ::= <statement> | <declaration>

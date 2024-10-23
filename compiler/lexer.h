@@ -86,11 +86,11 @@ public:
     Token next();
 private:
     std::ifstream file;
-    char c;               // 下一个待读取的字符
-    int row = 0;          // c 所在的行
-    int col = -1;         // c 所在的列
-    bool lex_flag;        // 是否打印
-    void move_forward();  // 读取下一个字符
+    char c;               // currend character, i.e., the next character to be used
+    int row = 0;          // current row
+    int col = -1;         // current column
+    bool lex_flag;        // whether to print tokens
+    void move_forward();
     Token next_token();
     Token next_identifier();
     Token next_number();

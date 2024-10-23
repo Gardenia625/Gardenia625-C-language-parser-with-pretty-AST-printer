@@ -4,18 +4,18 @@
 #include "lexer.h"
 #include "AST.h"
 
-// box-drawing characters 
-// │ ├ └ ─
-
-
-// CType, CDecl, Parameter are printed inline,
-// while others are printed on separate lines.
+// Notes:
+// 1. CType, CDecl, Parameter are printed inline,
+//    while others are printed on separate lines.
+// 2. Each node executes indent_push() for its child nodes,
+//    and excute "cur -= 2" for itself.
 
 vector<int> AST::indent = {};
 int AST::cur = 0;
 
 // Print indentation and execute indent.pop_back() if reaching the end.
 void AST::print_indent(bool ending) {
+    // box-drawing characters: │ ├ └ ─
     int lst = 0;
     cout << string(indent[0] - lst, ' ');
     lst = indent[0] + 1;
@@ -30,22 +30,22 @@ void AST::print_indent(bool ending) {
     if (ending) {
         indent.pop_back();
         // Pop is executed automatically,
-        // but "cur -= 2" need to be executed afterward.
+        // but "cur -= 2" needs to be executed afterward.
     }
 }
 
 // Record current indentation.
-void AST::add_indent() {
+void AST::indent_push() {
     indent.push_back(cur);
     cur += 2;
 }
 
-// Print the name of component, then execute add_indent().
+// Print the name of component, then execute indent_push().
 // If this function is used, "cur -= 2" needs to be executed afterward.
 void AST::print_component(string name, bool ending) {
     print_indent(ending);
     cout << COLOR_COMPONENT << name << COLOR_RESET << endl;
-    add_indent();
+    indent_push();
 }
 
 void CType::print() {
@@ -70,7 +70,7 @@ void CType::print() {
 
 // AST
 void Program::print(bool ending) {
-    add_indent();
+    indent_push();
     cout << COLOR_CLASS << "Program" << COLOR_RESET << endl;
     for (auto it = decls.begin(); it != decls.end(); ++it) {
         (*it)->print(it + 1 == decls.end());
@@ -90,6 +90,9 @@ void Expression::print(bool ending) {
 
 // statement
 void Statement::print(bool ending) {
+    if (statement_type == ST::NONE) {
+        return;
+    }
     print_indent(ending);
     switch (statement_type) {
         case ST::CONTINUE:
@@ -104,7 +107,7 @@ void Statement::print(bool ending) {
 void ReturnStatement::print(bool ending) {
     print_indent(ending);
     cout << COLOR_CLASS << "Return " << COLOR_RESET << endl;
-    add_indent();
+    indent_push();
     exp->print(true);
     if (ending) {
         cur -= 2;
@@ -114,7 +117,7 @@ void ReturnStatement::print(bool ending) {
 void IfStatement::print(bool ending) {
     print_indent(ending);
     cout << COLOR_CLASS << "If" << COLOR_RESET << endl;
-    add_indent();
+    indent_push();
     // condition
     print_component("condition", false);
     cond->print(true);
@@ -132,7 +135,7 @@ void IfStatement::print(bool ending) {
 void WhileStatement::print(bool ending) {
     print_indent(ending);
     cout << COLOR_CLASS << "While" << COLOR_RESET << endl;
-    add_indent();
+    indent_push();
     // condition
     print_component("condition", false);
     cond->print(true);
@@ -145,7 +148,7 @@ void WhileStatement::print(bool ending) {
 void DoStatement::print(bool ending) {
     print_indent(ending);
     cout << COLOR_CLASS << "Do" << COLOR_RESET << endl;
-    add_indent();
+    indent_push();
     // body
     print_component("body", false);
     body->print(true);
@@ -158,7 +161,7 @@ void DoStatement::print(bool ending) {
 void ForStatement::print(bool ending) {
     print_indent(ending);
     cout << COLOR_CLASS << "For" << COLOR_RESET << endl;
-    add_indent();
+    indent_push();
     // init
     print_component("initialization", false);
     for_init->print(true);
@@ -179,13 +182,17 @@ void ForStatement::print(bool ending) {
 }
 
 void Block::print(bool ending) {
-    // add_indent();
+    // indent_push();
     // print_indent(ending);
     // cout << COLOR_CLASS <<  "Block" << COLOR_RESET << endl;
     // for (auto it = items.begin(); it != items.end(); ++it) {
     //     (*it)->print(it + 1 == items.end());
     // }
     // cur -= 2;
+    if (items.empty() && ending) {
+        indent.pop_back();
+        cur -= 2;
+    }
     for (auto it = items.begin(); it != items.end(); ++it) {
         (*it)->print(it + 1 == items.end());
     }
@@ -244,7 +251,7 @@ void Initializer::print(bool ending) {
 void Variable::print(bool ending) {
     print_indent(ending);    
     cout << COLOR_CLASS << "Varible" << COLOR_RESET << endl;
-    add_indent();
+    indent_push();
     // type
     print_component("type", false);
     print_indent(true);
@@ -268,7 +275,7 @@ void Variable::print(bool ending) {
 void Function::print(bool ending) {
     print_indent(ending);
     cout << COLOR_CLASS << "Function" << COLOR_RESET << endl;
-    add_indent();
+    indent_push();
     // signature
     print_component("signature", false);
     print_indent(true);

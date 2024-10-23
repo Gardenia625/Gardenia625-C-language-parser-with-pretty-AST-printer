@@ -47,7 +47,7 @@ std::unordered_map<string, TT> get_token_type {
     {"case", TT::CASE},
     {"default", TT::DEFAULT},
 
-    
+    // other
     {"sizeof", TT::OPERATOR},
     
     // {"include", TokenType::KEYWORD},
@@ -73,7 +73,7 @@ std::unordered_map<char, char> get_escape_char {
     {'0', '\0'}
 };
 
-// 读取文件的下一个字符
+// Read the next character of the file.
 void Lexer::move_forward() {
     if (c == '\n') {
         ++row;
@@ -84,7 +84,7 @@ void Lexer::move_forward() {
     file.get(c);
 }
 
-// 获取下一个 token, 如有需要还会打印它
+// Get the next token, and print it if required.
 Token Lexer::next() {
     Token ret = next_token();
     if (lex_flag && ret.type != TT::END) {
@@ -95,30 +95,30 @@ Token Lexer::next() {
 
 Token Lexer::next_token() {
     while (!file.eof()) {
-        if (isspace(c)) {              // 跳过空格
+        if (isspace(c)) {              // skip all kinds of space
             move_forward();
             continue;
         }
-        if (c == '/') {                // 可能是注释
+        if (c == '/') {                // maybe a comment
             Token t = next_comment();
             if (t.type != TT::COMMENT) {
                 return t;
             }
             continue;
         }
-        if (isdigit(c)) {              // 数字
+        if (isdigit(c)) {              // number
             return next_number();
         }
-        if (isalpha(c) || c == '_') {  // 标识符 或 关键词
+        if (isalpha(c) || c == '_') {  // identifier or keyword
             return next_identifier();
         }
-        if (c == '\'') {               // 字符
+        if (c == '\'') {               // char
             return next_char();
         }
-        if (c == '"') {                // 字符串
+        if (c == '"') {                // string
             return next_string();
         }
-        return next_symbol();          // 运算符或其它符号
+        return next_symbol();          // operator or symbol
     }
     file.close();
     return Token(TT::END, "", row, col);
@@ -129,13 +129,13 @@ Token Lexer::next_comment() {
     bool maybe_end = false;
     move_forward();
     switch(c) {
-        case '/':           // 单行注释
+        case '/':           // single-line comment
             while (c != '\n' && !file.eof()) {
                 move_forward();
             }
             return ret;
-        case '*':           // 多行注释
-            while (true) {  // 只能以 "*/" 为结尾
+        case '*':           // multi-line comment
+            while (true) {  // can only ends with "*/"
                 move_forward();
                 if (file.eof()) {
                     lexer_error("unterminated comment", ret.row);
@@ -145,7 +145,7 @@ Token Lexer::next_comment() {
                 }
                 maybe_end = (c == '*');
             }
-        default:            // 运算符 "/" 或 "/="
+        default:            // operator "/" or "/="
             ret.type = TT::OPERATOR;
             if (c == '=') {
                 ret.value = "/=";
@@ -199,7 +199,7 @@ Token Lexer::next_identifier() {
         move_forward();
     }
     auto it = get_token_type.find(ret.value);
-    if (it != get_token_type.end()) {  // 关键词
+    if (it != get_token_type.end()) {  // keyword
         ret.type = it->second;
     }
     return ret;
@@ -209,7 +209,7 @@ Token Lexer::next_char() {
     Token ret(TT::CHAR, "", row, col);
     move_forward();
     ret.value = c;
-    if (c == '\\') {  // 转义符号
+    if (c == '\\') {  // escape character
         move_forward();
         auto it = get_escape_char.find(c);
         if (it != get_escape_char.end()) {
@@ -231,11 +231,11 @@ Token Lexer::next_string() {
     move_forward();
     string s;
     while (c != '"') {
-        if (c == '\\') {             // 转义字符
+        if (c == '\\') {             // escape character
             move_forward();
             if (file.eof()) {
                 lexer_error("missing terminating \" character", ret.row);
-            } else if (c == '\n') {  // 续行符
+            } else if (c == '\n') {  // line continuation
                 move_forward();
                 continue;
             }
@@ -265,7 +265,7 @@ Token Lexer::next_symbol() {
     move_forward();
     char second = c;
     switch (first) {
-        // 运算符
+        // operator
         case '+':
         case '*':
         case '%':
@@ -298,7 +298,7 @@ Token Lexer::next_symbol() {
         case '?':
         case ':':
             break;
-        // 符号
+        // symbol
         case '(': { ret.type = TT::L_PARENTHESIS; break; }
         case ')': { ret.type = TT::R_PARENTHESIS; break; }
         case '[': { ret.type = TT::L_BRACKET; break; }
@@ -310,7 +310,7 @@ Token Lexer::next_symbol() {
         case '#': { ret.type = TT::HASH; break; }
         case '\\':
             move_forward();
-            if (c == '\n') {  // 续行符
+            if (c == '\n') {  // line continuation
                 move_forward();
                 return next_token();
             } else {

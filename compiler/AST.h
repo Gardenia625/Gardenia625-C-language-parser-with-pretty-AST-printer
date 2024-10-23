@@ -15,10 +15,10 @@ enum class CS{
     EXTERN,
     // type
     VOID,
-    CHAR,    // 1 Byte
-    INT,     // 2 Byte
-    LONG,    // 4 Byte
-    DOUBLE,  // 8 Byte
+    CHAR,    // 1 byte
+    INT,     // 2 byte
+    LONG,    // 4 byte
+    DOUBLE,  // 8 byte
     // modifier
     UNSIGNED,
     // else
@@ -44,10 +44,11 @@ public:
     virtual ~AST() = default;
     virtual void print(bool ending) = 0;
 protected:
-    static vector<int> indent;  // used for printing AST
-    static int cur;             // used for printing AST
+    // The following members are all used for printing the AST.
+    static vector<int> indent;
+    static int cur;
     void print_indent(bool ending);
-    void add_indent();
+    void indent_push();
     void print_component(string name, bool ending);
 };
 
