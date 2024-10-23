@@ -31,44 +31,29 @@ struct CType {
     CType(CS t): type(t) {}
     CType(CS m, CS t) : modifier(m), type(t) {}
     CType(CS t, string s) : type(t), name(s) {}
-    void print(int tabs=0);
+    void print();
     CS storage = CS::NONE;
     CS modifier = CS::NONE;
     CS type = CS::VOID;
     string name = "";  // identifier of struct
 };
 
-// declarator
-class Parameter;
-class Expression;
-struct CDecl {
-    CDecl() = default;
-    CDecl(string s) : name(s) {}
-    void print(int tabs=0);
-    string name;
-    int depth = 0;  // pointer depth
-    vector<Parameter> parameters;
-    vector<unique_ptr<Expression>> indexes;
-};
-
-struct Parameter {
-    Parameter() = default;
-    Parameter(CType t, CDecl d) : type(t), decl(std::move(d)) {}
-    void print(int tabs);
-    CType type;
-    CDecl decl;
-};
-
 // abstract syntax tree
 class AST {
 public:
     virtual ~AST() = default;
-    virtual void print(int tabs) = 0;
+    virtual void print(bool ending) = 0;
+protected:
+    static vector<int> indent;  // used for printing AST
+    static int cur;             // used for printing AST
+    void print_indent(bool ending);
+    void add_indent();
+    void print_component(string name, bool ending);
 };
 
 class Program : public AST {
 public:
-    void print(int tabs);
+    void print(bool ending);
     Program& operator+=(unique_ptr<AST> other) {
         decls.push_back(std::move(other));
         return *this;
@@ -82,7 +67,7 @@ private:
 class Expression : public AST {
 public:
     Expression(int v) : val(v) {}
-    void print(int tabs);
+    void print(bool ending);
 private:
     int val;
 };
@@ -107,7 +92,7 @@ public:
     Statement() = default;
     Statement(ST st) : statement_type(st) {}
     ST type() { return statement_type; }
-    void print(int tabs);
+    void print(bool ending);
 protected:
     ST statement_type = ST::NONE;
 };
@@ -115,7 +100,7 @@ protected:
 class ReturnStatement : public Statement {
 public:
     ReturnStatement(unique_ptr<Expression> e) : exp(std::move(e)) {}
-    void print(int tabs);
+    void print(bool ending);
 private:
     unique_ptr<Expression> exp;
 };
@@ -124,7 +109,7 @@ class IfStatement : public Statement {
 public:
     IfStatement(unique_ptr<Expression> c, unique_ptr<Statement> t) : cond(std::move(c)), then(std::move(t)) {}
     void add_else(unique_ptr<Statement> p) { _else = std::move(p); }
-    void print(int tabs);
+    void print(bool ending);
 private:
     unique_ptr<Expression> cond;
     unique_ptr<Statement> then;
@@ -133,35 +118,37 @@ private:
 
 class WhileStatement : public Statement {
 public:
-    WhileStatement(unique_ptr<Expression> c, unique_ptr<Statement> s) : cond(std::move(c)), stmt(std::move(s)) {}
-    void print(int tabs);
+    WhileStatement(unique_ptr<Expression> c, unique_ptr<Statement> s) : cond(std::move(c)), body(std::move(s)) {}
+    void print(bool ending);
 private:
     unique_ptr<Expression> cond;
-    unique_ptr<Statement> stmt;
+    unique_ptr<Statement> body;
 };
 
 class DoStatement : public Statement {
 public:
-    DoStatement(unique_ptr<Statement> s, unique_ptr<Expression> c) : stmt(std::move(s)), cond(std::move(c)) {}
-    void print(int tabs);
+    DoStatement(unique_ptr<Statement> s, unique_ptr<Expression> c) : body(std::move(s)), cond(std::move(c)) {}
+    void print(bool ending);
 private:
-    unique_ptr<Statement> stmt;
+    unique_ptr<Statement> body;
     unique_ptr<Expression> cond;
 };
 
 class ForStatement : public Statement {
 public:
     ForStatement() = default;
-    void add_init(unique_ptr<AST> f) { for_init = std::move(f); }
+    void add_init(unique_ptr<AST> f) { 
+        if (f) { cout << "ok"; }
+        for_init = std::move(f); }
     void add_cond(unique_ptr<Expression> c) { cond = std::move(c); }
     void add_inc(unique_ptr<Expression> i) { inc = std::move(i); }
-    void add_stmt(unique_ptr<Statement> s) { stmt = std::move(s); }
-    void print(int tabs);
+    void add_body(unique_ptr<Statement> s) { body = std::move(s); }
+    void print(bool ending);
 private:
     unique_ptr<AST> for_init;
     unique_ptr<Expression> cond;
     unique_ptr<Expression> inc;
-    unique_ptr<Statement> stmt;
+    unique_ptr<Statement> body;
 };
 
 class Block : public Statement {
@@ -171,7 +158,7 @@ public:
         items.push_back(std::move(other));
         return *this;
     }
-    void print(int tabs);
+    void print(bool ending);
 private:
     vector<unique_ptr<AST>> items;
 };
@@ -179,13 +166,32 @@ private:
 class ExpStatement : public Statement {
 public:
     ExpStatement(unique_ptr<Expression> e) : exp(std::move(e)) {}
-    void print(int tabs);
+    void print(bool ending);
 private:
     unique_ptr<Expression> exp;
 };
 
 
 // declaration
+class Parameter;
+struct CDecl : AST {
+    CDecl() = default;
+    CDecl(string s) : name(s) {}
+    void print(bool ending);
+    string name;
+    int depth = 0;  // pointer depth
+    vector<Parameter> parameters;
+    vector<unique_ptr<Expression>> indexes;
+};
+
+struct Parameter : AST {
+    Parameter() = default;
+    Parameter(CType t, CDecl d) : type(t), decl(std::move(d)) {}
+    void print(bool ending);
+    CType type;
+    CDecl decl;
+};
+
 class Initializer : public AST {
 public:
     Initializer() = default;
@@ -194,7 +200,7 @@ public:
         init_list.push_back(std::move(other));
         return *this;
     }
-    void print(int tabs);
+    void print(bool ending);
 private:
     unique_ptr<Expression> exp;
     vector<unique_ptr<Initializer>> init_list;
@@ -204,7 +210,7 @@ class Variable : public AST {
 public:
     Variable(CType t, CDecl d) : type(t), decl(std::move(d)) {}
     void init(unique_ptr<Initializer> p) { initializer = std::move(p); }
-    void print(int tabs);
+    void print(bool ending);
 private:
     CType type;
     CDecl decl;
@@ -217,7 +223,7 @@ public:
         decl = std::move(d);
     }
     void set_body(unique_ptr<Block> p) { body = std::move(p); }
-    void print(int tabs);
+    void print(bool ending);
 private:
     CType type;
     CDecl decl;
@@ -227,7 +233,7 @@ private:
 class Struct : public AST {
 public:
     Struct(string s) : name(s) {}
-    void print(int tabs);
+    void print(bool ending);
 private:
     string name;
 };

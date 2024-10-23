@@ -21,8 +21,8 @@ unique_ptr<Program> Parser::program() {
         *ret += std::move(declaration(true));
     }
     if (par_flag) {
-        cout << COLOR_TIP << "AST" << COLOR_RESET << endl;
-        ret->print(0);
+        cout << COLOR_TITLE << "AST" << COLOR_RESET << endl;
+        ret->print(true);
     }
     return ret;
 }
@@ -41,7 +41,7 @@ unique_ptr<AST> Parser::declaration(bool global) {
         unique_ptr<Variable> ret = make_unique<Variable>(type, std::move(decl));
         if (token.is_operator("=")) {
             consume();  // "="
-            ret->init(std::move(initializer()));
+            ret->init(initializer());
         }
         match(TT::SEMICOLON);
         return ret;
@@ -50,7 +50,7 @@ unique_ptr<AST> Parser::declaration(bool global) {
         unique_ptr<Function> ret = make_unique<Function>(type, std::move(decl));
         switch(consume().type) {
             case TT::L_BRACE:
-                ret->set_body(std::move(block()));
+                ret->set_body(block());
             case TT::SEMICOLON:
                 break;
             default:
@@ -135,7 +135,7 @@ CDecl Parser::declarator() {
     } else {
         while (token.type == TT::L_BRACKET) {
             consume();  // "["
-            ret.indexes.push_back(std::move(expression()));
+            ret.indexes.push_back(expression());
             match(TT::R_BRACKET);
         }
     }
@@ -150,7 +150,7 @@ vector<Parameter> Parser::parameter_list() {
         consume();  // "void"
     } else {
         while (true) {
-            ret.push_back(std::move(parameter()));
+            ret.push_back(parameter());
             if (token.type == TT::COMMA) {
                 consume();  // ","
             } else {
@@ -200,6 +200,7 @@ unique_ptr<Initializer> Parser::initializer() {
 unique_ptr<Statement> Parser::statement() {
     unique_ptr<Statement> ret;
     if (token.type == TT::SEMICOLON) {
+        consume();  // ";"
         return make_unique<Statement>();
     } else if (token.type == TT::RETURN) {
         consume();  // "return"
@@ -236,11 +237,11 @@ unique_ptr<Statement> Parser::statement() {
     } else if (token.type == TT::FOR) {
         consume();  // "for"
         match(TT::L_PARENTHESIS);
-        unique_ptr<ForStatement> ret;
+        unique_ptr<ForStatement> ret = make_unique<ForStatement>();
         if (is_specifier()) {
             ret->add_init(declaration(false));
         } else {
-            ret->add_init(make_unique<ExpStatement>(expression()));
+            ret->add_init(expression());
             match(TT::SEMICOLON);
         }
         if (token.type != TT::SEMICOLON) {
@@ -251,8 +252,8 @@ unique_ptr<Statement> Parser::statement() {
             ret->add_inc(expression());
         }
         match(TT::R_PARENTHESIS);
-        ret->add_stmt(statement());
-        return ret;        
+        ret->add_body(statement());
+        return ret;
     } else if (token.type == TT::CONTINUE) {
         return make_unique<Statement>(ST::CONTINUE);
     } else if (token.type == TT::BREAK) {
@@ -288,7 +289,8 @@ unique_ptr<Block> Parser::block() {
 // expression ::= int
 // int ::= ? A constant token ?
 unique_ptr<Expression> Parser::expression() {
-    unique_ptr<Expression> ret = make_unique<Expression>(stoi(consume().value));
+    unique_ptr<Expression> ret = make_unique<Expression>(stoi(token.value));
+    consume();
     return ret;
 }
 

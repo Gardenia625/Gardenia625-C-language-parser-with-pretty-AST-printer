@@ -4,7 +4,52 @@
 #include "lexer.h"
 #include "AST.h"
 
-void CType::print(int tabs) {
+// box-drawing characters 
+// │ ├ └ ─
+
+
+// CType, CDecl, Parameter are printed inline,
+// while others are printed on separate lines.
+
+vector<int> AST::indent = {};
+int AST::cur = 0;
+
+// Print indentation and execute indent.pop_back() if reaching the end.
+void AST::print_indent(bool ending) {
+    int lst = 0;
+    cout << string(indent[0] - lst, ' ');
+    lst = indent[0] + 1;
+    for (size_t i = 1; i != indent.size(); ++i) {
+        cout << "│" << string(indent[i] - lst, ' ');
+        lst = indent[i] + 1;
+    }
+    cout << (ending ? "└" : "├");
+    for (; lst < cur; ++lst) {
+        cout << "─";
+    }
+    if (ending) {
+        indent.pop_back();
+        // Pop is executed automatically,
+        // but "cur -= 2" need to be executed afterward.
+    }
+}
+
+// Record current indentation.
+void AST::add_indent() {
+    indent.push_back(cur);
+    cur += 2;
+}
+
+// Print the name of component, then execute add_indent().
+// If this function is used, "cur -= 2" needs to be executed afterward.
+void AST::print_component(string name, bool ending) {
+    print_indent(ending);
+    cout << COLOR_COMPONENT << name << COLOR_RESET << endl;
+    add_indent();
+}
+
+void CType::print() {
+    cout << COLOR_TYPE;
     switch (storage) {
         case CS::STATIC: cout << "static "; break;
         case CS::EXTERN: cout << "extern "; break;
@@ -20,14 +65,143 @@ void CType::print(int tabs) {
         case CS::LONG: cout << "long"; break;
         case CS::DOUBLE: cout << "double"; break;
     }
+    cout << COLOR_RESET;
 }
 
-void CDecl::print(int tabs) {
+// AST
+void Program::print(bool ending) {
+    add_indent();
+    cout << COLOR_CLASS << "Program" << COLOR_RESET << endl;
+    for (auto it = decls.begin(); it != decls.end(); ++it) {
+        (*it)->print(it + 1 == decls.end());
+    }
+}
+
+
+// expression
+void Expression::print(bool ending) {
+    print_indent(ending);
+    cout << val << endl;
+    if (ending) {
+        cur -= 2;
+    }
+}
+
+
+// statement
+void Statement::print(bool ending) {
+    print_indent(ending);
+    switch (statement_type) {
+        case ST::CONTINUE:
+            cout << COLOR_CLASS << "continue" << COLOR_RESET;
+            return;
+        case ST::BREAK:
+            cout << COLOR_CLASS << "break" << COLOR_RESET;
+            return;
+    }
+}
+
+void ReturnStatement::print(bool ending) {
+    print_indent(ending);
+    cout << COLOR_CLASS << "Return " << COLOR_RESET << endl;
+    add_indent();
+    exp->print(true);
+    if (ending) {
+        cur -= 2;
+    }
+}
+
+void IfStatement::print(bool ending) {
+    print_indent(ending);
+    cout << COLOR_CLASS << "If" << COLOR_RESET << endl;
+    add_indent();
+    // condition
+    print_component("condition", false);
+    cond->print(true);
+    // then
+    print_component("then", !(bool)_else);
+    then->print(true);
+    // else
+    if (_else) {
+        print_component("else", true);
+        _else->print(true);
+    }
+    cur -= (ending ? 4 : 2);
+}
+
+void WhileStatement::print(bool ending) {
+    print_indent(ending);
+    cout << COLOR_CLASS << "While" << COLOR_RESET << endl;
+    add_indent();
+    // condition
+    print_component("condition", false);
+    cond->print(true);
+    // body
+    print_component("body", true);
+    body->print(true);
+    cur -= (ending ? 4 : 2);
+}
+
+void DoStatement::print(bool ending) {
+    print_indent(ending);
+    cout << COLOR_CLASS << "Do" << COLOR_RESET << endl;
+    add_indent();
+    // body
+    print_component("body", false);
+    body->print(true);
+    // condition
+    print_component("condition", true);
+    cond->print(true);
+    cur -= (ending ? 4 : 2);
+}
+
+void ForStatement::print(bool ending) {
+    print_indent(ending);
+    cout << COLOR_CLASS << "For" << COLOR_RESET << endl;
+    add_indent();
+    // init
+    print_component("initialization", false);
+    for_init->print(true);
+    // condition
+    if (cond) {
+        print_component("condition", false);
+        cond->print(true);
+    }
+    // increment
+    if (inc) {
+        print_component("increment", false);
+        inc->print(true);
+    }
+    // body
+    print_component("body", true);
+    body->print(true);
+    cur -= (ending ? 4 : 2);
+}
+
+void Block::print(bool ending) {
+    // add_indent();
+    // print_indent(ending);
+    // cout << COLOR_CLASS <<  "Block" << COLOR_RESET << endl;
+    // for (auto it = items.begin(); it != items.end(); ++it) {
+    //     (*it)->print(it + 1 == items.end());
+    // }
+    // cur -= 2;
+    for (auto it = items.begin(); it != items.end(); ++it) {
+        (*it)->print(it + 1 == items.end());
+    }
+}
+
+void ExpStatement::print(bool ending) {
+    exp->print(ending);
+}
+
+// declaration
+void CDecl::print(bool ending) {
     cout << string(depth, '*') << name;
     if (!parameters.empty()) {
         cout << "(";
         for (auto it = parameters.begin(); it != parameters.end(); ++it) {
-            it->print(tabs);
+            it->print(false);
             if (it + 1 < parameters.end()) {
                 cout << ", ";
             }
@@ -37,137 +211,80 @@ void CDecl::print(int tabs) {
     if (!indexes.empty()) {
         for (auto& index : indexes) {
             cout << "[";
-            index->print(tabs);
+            index->print(false);
             cout << "]";
         }
     }
 }
 
-void Parameter::print(int tabs) {
+void Parameter::print(bool ending) {
     type.print();
     if (!decl.name.empty()) {
         cout << " ";
-        decl.print();
+        decl.print(false);
     }
 }
 
-
-// AST
-void Program::print(int tabs) {
-    cout << string(2 * tabs, ' ') << "Program(" << endl;
-    for (auto& ptr : decls) {
-        ptr->print(tabs + 1);
-    }
-    cout << string(2 * tabs, ' ') << ")" << endl;
-}
-
-
-// expression
-void Expression::print(int tabs) {
-    cout << string(2 * tabs, ' ') << val << endl;
-}
-
-
-// statement
-void Statement::print(int tabs) {
-    cout << string(2 * tabs, ' ');
-    switch (statement_type) {
-        case ST::CONTINUE:
-            cout << "continue";
-            break;
-        case ST::BREAK:
-            cout << "break";
-            return;
-    }
-    cout << ";" << endl;
-}
-
-void ReturnStatement::print(int tabs) {
-    cout << string(2 * tabs, ' ') << "Return(" << endl;
-    exp->print(tabs + 1);
-    cout << string(2 * tabs, ' ') << ")" << endl;
-}
-
-void IfStatement::print(int tabs) {
-    cout << string(2 * tabs++, ' ') << "If: " << endl;
-    cout << string(2 * tabs, ' ') << "cond = ";
-    cond->print(tabs + 1);
-    cout << " )" << endl;
-    cout << string(2 * tabs, ' ') << "then = " << endl;
-    then->print(tabs + 1);
-    if (_else) {
-        cout << string(2 * tabs, ' ') << "else: " << endl;
-        _else->print(tabs + 1);
-    }
-}
-
-void WhileStatement::print(int tabs) {
-
-}
-
-void DoStatement::print(int tabs) {
-
-}
-
-void ForStatement::print(int tabs) {
-
-}
-
-void Block::print(int tabs) {
-    cout << string(2 * tabs, ' ') << "Block(" << endl;
-    for (auto& ptr : items) {
-        ptr->print(tabs + 1);
-    }
-    cout << string(2 * tabs, ' ') << ")" << endl;
-}
-
-void ExpStatement::print(int tabs) {
-    exp->print(tabs);
-}
-
-// declaration
-void Initializer::print(int tabs) {
+void Initializer::print(bool ending) {
     if (init_list.empty()) {
-        exp->print(tabs + 1);
+        exp->print(ending);
     } else {
         cout << "{";
         for (auto it = init_list.begin(); it != init_list.end(); ++it) {
-            (*it)->print(tabs + 1);
+            (*it)->print(false);
             if (it + 1 < init_list.end()) {
                 cout << ", ";
             }
         }
         cout << "}";
+        cout << endl;
     }
 }
 
-void Variable::print(int tabs) {
-    cout << string(2 * tabs++, ' ') << "Variable(" << endl
-         << string(2 * tabs, ' ') << "type: ";
+void Variable::print(bool ending) {
+    print_indent(ending);    
+    cout << COLOR_CLASS << "Varible" << COLOR_RESET << endl;
+    add_indent();
+    // type
+    print_component("type", false);
+    print_indent(true);
     type.print();
-    cout << endl << string(2 * tabs, ' ') << "declarator: ";
-    decl.print(tabs);
+    cout << endl;
+    cur -= 2;
+    // declarator
+    print_component("declarator", !(bool)initializer);
+    print_indent(true);
+    decl.print(false);
+    cout << endl;
+    cur -= 2;
+    // initializer
     if (initializer) {
-        cout << endl << string(2 * tabs, ' ') << "initializer: ";
-        initializer->print(tabs);
+        print_component("initializer", true);
+        initializer->print(true);
     }
-    cout << endl << string(2 * --tabs, ' ') << endl;
-    cout << string(2 * tabs, ' ') << ")" << endl;
+    cur -= (ending ? 4 : 2);
 }
 
-void Function::print(int tabs) {
-    cout << string(2 * tabs++, ' ') << "Function(" << endl
-         << string(2 * tabs, ' ') << "signature = ";
+void Function::print(bool ending) {
+    print_indent(ending);
+    cout << COLOR_CLASS << "Function" << COLOR_RESET << endl;
+    add_indent();
+    // signature
+    print_component("signature", false);
+    print_indent(true);
     type.print();
     cout << " ";
-    decl.print(tabs);
-    cout << endl << string(2 * tabs, ' ') << "body = " << endl; 
-    body->print(tabs + 1);
-    cout << string(2 * --tabs, ' ') << ")" << endl;
+    decl.print(false);
+    cout << endl;
+    cur -= 2;
+    // body
+    print_component("body", true);
+    body->print(true);
+    cur -= (ending ? 4 : 2);
 }
 
 
-void Struct::print(int tabs) {
-    // cout << string(2 * tabs++, ' ') << "Struct(" << endl
-    //      << string(2 * tabs, ' ') << "name: " << type.name;
+void Struct::print(bool ending) {
+    // cout << string(2 * indent++, ' ') << "Struct(" << endl
+    //      << string(2 * indent, ' ') << "name: " << type.name;
 }

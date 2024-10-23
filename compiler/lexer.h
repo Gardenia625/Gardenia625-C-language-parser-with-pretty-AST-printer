@@ -55,7 +55,7 @@ enum class TT {
     L_BRACE,
     R_BRACE,
     COMMA,
-    SEMICOLON,
+    SEMICOLON
 };
 
 struct Token {
@@ -82,13 +82,13 @@ struct Token {
 
 class Lexer {
 public:
-    Lexer(string filename, bool flag);
+    Lexer(string f, bool l);
     Token next();
 private:
     std::ifstream file;
     char c;               // 下一个待读取的字符
-    int row;              // c 所在的行
-    int col;              // c 所在的列
+    int row = 0;          // c 所在的行
+    int col = -1;         // c 所在的列
     bool lex_flag;        // 是否打印
     void move_forward();  // 读取下一个字符
     Token next_token();
@@ -100,16 +100,14 @@ private:
     Token next_symbol();
 };
 
-
-inline Lexer::Lexer(string filename, bool flag)
-    : row(0), col(-1), file(filename), lex_flag(flag) {
+inline Lexer::Lexer(string f, bool l) : file(f), lex_flag(l) {
     if (!file) {
         cerr << COLOR_ERROR << "error: " << COLOR_RESET
-             << "Failed to open the file." << endl;
+             << "failed to open the file" << endl;
         exit(1);
     }
     if (lex_flag) {
-        cout << COLOR_TIP << "[ row: col] token" << COLOR_RESET << endl;
+        cout << COLOR_TITLE << "[ row: col] token" << COLOR_RESET << endl;
     }
     move_forward();
 }

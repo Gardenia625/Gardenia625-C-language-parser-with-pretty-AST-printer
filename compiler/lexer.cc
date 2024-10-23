@@ -1,9 +1,10 @@
 #include "lexer.h"
 
-
 void Token::print() {
-    cout << "[" << std::format("{:>4}", std::to_string(row)) << ":"
-         << std::format("{:>4}", std::to_string(col)) << "] ";
+    cout << COLOR_CLASS
+         << "[" << std::format("{:>4}", std::to_string(row)) << ":"
+         << std::format("{:>4}", std::to_string(col)) << "] "
+         << COLOR_RESET;
     switch (type) {
         case TT::CHAR:
             cout << "'" << value << "'";
