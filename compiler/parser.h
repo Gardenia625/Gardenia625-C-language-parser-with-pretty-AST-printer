@@ -20,12 +20,14 @@ private:
         return ret;
     };
     void match(TT t);
-    bool is_operator(string s) { return token.is_operator(s); }
     bool is_specifier() { return token.is_specifier(); }
+    bool is_operator(string s="") { return token.is_operator(s); }
+    bool is_unary();
+    bool is_binary();
     unique_ptr<AST> declaration(bool global);
     CType specifier(bool global);
     CType type_specifier();
-    CDecl declarator();
+    Declarator declarator();
     vector<Parameter> parameter_list();
     Parameter parameter();
     unique_ptr<Initializer> initializer();
@@ -34,8 +36,9 @@ private:
     unique_ptr<Block> block();
 
 
-    unique_ptr<Expression> expression();
-
+    unique_ptr<Expression> expression(int min_prec=0);
+    unique_ptr<Expression> factor();
+    vector<unique_ptr<Expression>> argument_list();
     string identifier();
 
 

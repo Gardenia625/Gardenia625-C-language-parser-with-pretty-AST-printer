@@ -155,39 +155,11 @@ Token Lexer::next_comment() {
     }
 }
 
-std::unordered_set<char> end_of_number {
-    '+', '-', '*', '/', '%', '&', '|', '^', '<', '=', '>', '!',
-    ')', ']', '}', ',', ';'
-};
-
 Token Lexer::next_number() {
     Token ret(TT::NUMBER, "", row, col);
-    bool is_float = false;
-    // if (c == '.' || c == 'e' || c == 'E' || c == 'p' || c == 'P') {
-    //     is_float == true;
-    // }
-    // if (c == '0') {
-    //     move_forward();
-    //     if (c == 'x' || c == 'X') {  // base 16
-
-    //     } else {                     // base 8
-            
-    //     }
-    // } else {                         // base 10
-
-    // }
-
     while (isdigit(c)) {
         ret.value += c;
         move_forward();
-    }
-    auto it = end_of_number.find(c);
-    if (it == end_of_number.end()) {
-        lexer_error("invalid number", ret.row);
-        do {
-            move_forward();
-            it = end_of_number.find(c);
-        } while (it == end_of_number.end() && !file.eof());
     }
     return ret;
 }
@@ -260,43 +232,52 @@ Token Lexer::next_string() {
 
 Token Lexer::next_symbol() {
     Token ret(TT::OPERATOR, string{c}, row, col);
-    bool unary = true;
+    // bool unary = true;
     char first = c;
     move_forward();
-    char second = c;
     switch (first) {
         // operator
-        case '+':
-        case '*':
-        case '%':
-        case '&':
-        case '|':
-        case '^':
-        case '<':
-        case '>':
-        case '=':
-            if (first == second || second == '=') {
-                ret.value = string{first, second};
-                unary = false;
-            }
-            break;
-        case '!':
-            if (second == '=') {
-                ret.value = string{first, second};
-                unary = false;
-            }
-            break;
-        
-        case '-':
-            if (second == '-' || second == '=' || second == '>') {
-                ret.value = string{first, second};
-                unary = false;
-            }
-            break;
         case '~':
         case '.':
         case '?':
-        case ':':
+            break;
+        case '*':
+        case '%':
+        case '^':
+        case '!':
+        case '=':
+            if (c == '=') {
+                ret.value += c;
+                move_forward();
+            }
+            break;
+        case '+':
+        case '&':
+        case '|':
+            if (c == first || c == '=') {
+                ret.value += c;
+                move_forward();
+            }
+            break;
+        case '-':
+            if (c == '-' || c == '=' || c == '>') {
+                ret.value += c;
+                move_forward();
+            }
+            break;
+        case '<':
+        case '>':
+            if (c == '=') {
+                ret.value += c;
+                move_forward();
+            } else if (c == first) {
+                ret.value += c;
+                move_forward();
+                if (c == '=') {
+                    ret.value += c;
+                    move_forward();
+                }
+            }
             break;
         // symbol
         case '(': { ret.type = TT::L_PARENTHESIS; break; }
@@ -307,6 +288,7 @@ Token Lexer::next_symbol() {
         case '}': { ret.type = TT::R_BRACE; break; }
         case ',': { ret.type = TT::COMMA; break; }
         case ';': { ret.type = TT::SEMICOLON; break; }
+        case ':': { ret.type = TT::COLON; break; }
         case '#': { ret.type = TT::HASH; break; }
         case '\\':
             move_forward();
@@ -318,9 +300,6 @@ Token Lexer::next_symbol() {
             }
         default:
             lexer_error(std::format("unknown symbol '{}'", first), ret.row);
-    }
-    if (!unary) {
-        move_forward();
     }
     return ret;
 }

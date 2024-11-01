@@ -24,6 +24,8 @@ void Parser::match(TT t) {
                 parser_error("expected ','", token.row);
             case TT::SEMICOLON:
                 parser_error("expected ';'", token.row);
+            case TT::COLON:
+                parser_error("expected ':'", token.row);
         }
     }
 }
@@ -49,7 +51,7 @@ unique_ptr<AST> Parser::declaration(bool global) {
         // return struct_declaration();
     }
     CType type = specifier(global);
-    CDecl decl = declarator();
+    Declarator decl = declarator();
     if (decl.parameters.empty()) {
         // variable declaration
         unique_ptr<Variable> ret = make_unique<Variable>(type, std::move(decl));
@@ -126,8 +128,8 @@ CType Parser::type_specifier() {
 // <direct-declarator> ::= <simple-declarator> [ <declarator-suffix> ]
 // <simple-declarator> ::= <identifier> | "(" <declarator> ")"
 // <declarator-suffix> ::= <parameter-list> | { "[" <const> "]" }+
-CDecl Parser::declarator() {
-    CDecl ret;
+Declarator Parser::declarator() {
+    Declarator ret;
     if (is_operator("*")) {
         consume();
         ret = declarator();
@@ -139,7 +141,7 @@ CDecl Parser::declarator() {
         ret = declarator();
         match(TT::R_PARENTHESIS);
     } else {
-        ret = CDecl(identifier());
+        ret = Declarator(identifier());
     }
     // declarator suffix
     if (token.type == TT::L_PARENTHESIS) {
@@ -179,7 +181,7 @@ vector<Parameter> Parser::parameter_list() {
 // <parameter> ::= <type-specifier> <declarator>
 Parameter Parser::parameter() {
     CType t = type_specifier();
-    CDecl d = CDecl(declarator());
+    Declarator d = Declarator(declarator());
     return Parameter(t, std::move(d));
 }
 
@@ -190,7 +192,7 @@ unique_ptr<Initializer> Parser::initializer() {
         unique_ptr<Initializer> ret = make_unique<Initializer>();
         do {
             consume();  // "," or begining "{"
-            if (token.type == TT::COMMA) {
+            if (token.type == TT::R_BRACE) {
                 break;
             }
             *ret += std::move(initializer());
@@ -198,7 +200,7 @@ unique_ptr<Initializer> Parser::initializer() {
         match(TT::R_BRACE);
         return ret;
     }
-    return make_unique<Initializer>(expression());
+    return make_unique<Initializer>(expression(2));
 }
 
 // <statement> ::= ";"
@@ -218,8 +220,8 @@ unique_ptr<Statement> Parser::statement() {
         return make_unique<Statement>();
     } else if (token.type == TT::RETURN) {
         consume();  // "return"
-        unique_ptr<Expression> cond = expression();
-        unique_ptr<Statement> ret = make_unique<ReturnStatement>(std::move(cond));
+        unique_ptr<Expression> ans = expression();
+        unique_ptr<Statement> ret = make_unique<ReturnStatement>(std::move(ans));
         match(TT::SEMICOLON);
         return ret;
     } else if (token.type == TT::IF) {
@@ -269,8 +271,12 @@ unique_ptr<Statement> Parser::statement() {
         ret->add_body(statement());
         return ret;
     } else if (token.type == TT::CONTINUE) {
+        consume();  // "continue"
+        match(TT::SEMICOLON);
         return make_unique<Statement>(ST::CONTINUE);
     } else if (token.type == TT::BREAK) {
+        consume();  // "break"
+        match(TT::SEMICOLON);
         return make_unique<Statement>(ST::BREAK);
     } else if (token.type == TT::L_BRACE) {
         consume();  // "{"
@@ -299,11 +305,133 @@ unique_ptr<Block> Parser::block() {
     return ret;
 }
 
-// expression ::= int
-// int ::= ? A constant token ?
-unique_ptr<Expression> Parser::expression() {
-    unique_ptr<Expression> ret = make_unique<Expression>(stoi(token.value));
-    consume();
+// expression
+std::unordered_set<string> unop = { 
+    "++", "--", "+", "-", "!", "~", "*", "&", "sizeof"
+};
+
+std::unordered_set<string> binop = { 
+    "+", "-", "*", "/", "%",
+    "&", "^", "|", "&&", "||", "<<", ">>",
+    "==", "!=", "<", "<=", ">", ">=", 
+    "=", "+=", "-=", "*=", "/=", "*=", "<<=", ">>=", "&=", "^=", "|=",
+    ",", "?"
+};
+
+bool Parser::is_unary() {
+    return token.is_operator() && (unop.find(token.value) != unop.end());
+}
+
+bool Parser::is_binary() {
+    return token.is_operator() && (binop.find(token.value) != binop.end());
+}
+
+std::unordered_map<string, std::pair<int, int>> map_prec = {
+    // 13 multiplicative
+    {"*", {13, 1}},
+    {"/", {13, 1}},
+    {"%", {13, 1}},
+    // 12 additive
+    {"+", {12, 1}},
+    {"-", {12, 1}},
+    // 11 shift
+    {"<<", {11, 1}},
+    {">>", {11, 1}},
+    // 10 relational
+    {"<", {10, 1}},
+    {"<=", {10, 1}},
+    {">", {10, 1}},
+    {">=", {10, 1}},
+    // 9 equality
+    {"==", {9, 1}},
+    {"!=", {9, 1}},
+    // 8 bitwise AND
+    {"&", {8, 1}},
+    // 7 bitwise XOR
+    {"^", {7, 1}},
+    // 6 bitwise OR
+    {"|", {6, 1}},
+    // 5 logical AND
+    {"&&", {5, 1}},
+    // 4 logical OR
+    {"||", {4, 1}},
+    // 3 tenary
+    {"?", {3, 0}},
+    // 2 assignment
+    {"=", {2, 0}},
+    {"+=", {2, 0}},
+    {"-=", {2, 0}},
+    {"*=", {2, 0}},
+    {"/=", {2, 0}},
+    {"%=", {2, 0}},
+    {"<<=", {2, 0}},
+    {">>=", {2, 0}},
+    {"&=", {2, 0}},
+    {"^=", {2, 0}},
+    {"|=", {2, 0}},
+    // 1 comma
+    {",", {1, 1}}
+};
+
+
+// <exp> ::= <factor> 
+//         | <exp> <binary-operator> <exp>
+//         | <exp> "?" <exp> ":" <exp>
+unique_ptr<Expression> Parser::expression(int min_prec) {
+    unique_ptr<Expression> left = factor();
+    while (is_binary()) {
+        auto [prec, assoc_left] = map_prec[token.value];
+        if (prec < min_prec) {
+            break;
+        }
+        unique_ptr<Expression> new_left = make_unique<Expression>(std::move(left), token.value);
+        left = std::move(new_left);
+        if (consume().value == "?") {
+            left->set_mid(expression());
+            match(TT::COLON);
+            left->set_right(expression(prec + assoc_left));
+        } else {
+            left->set_right(expression(prec + assoc_left));
+        }
+    }
+    return left;
+}
+
+// <factor> ::= <int>
+//            | <unary-operator> <factor>
+//            | "(" <exp> ")"
+//            | <identifier>
+//            | <identifier> "(" [ <argument-list> ] ")"
+unique_ptr<Expression> Parser::factor() {
+    if (token.type == TT::NUMBER) {
+        return make_unique<Constant>(stoi(consume().value));
+    } else if (is_unary()) {
+        unique_ptr<Expression> ret = make_unique<Expression>(consume().value);
+        ret->set_left(factor());
+        return ret;
+    } else if (token.type == TT::L_PARENTHESIS) {
+        consume();  // "("
+        unique_ptr<Expression> ret = expression();
+        match(TT::R_PARENTHESIS);
+        return ret;
+    } else {
+        unique_ptr<Expression> ret = make_unique<Expression>(identifier());
+        if (token.type == TT::L_PARENTHESIS) {
+            consume();  // "("
+            ret->make_call(argument_list());
+            match(TT::R_PARENTHESIS);
+        }
+        return ret;
+    }
+}
+
+// <argument-list> ::= <exp> { "," <exp> }
+vector<unique_ptr<Expression>> Parser::argument_list() {
+    vector<unique_ptr<Expression>> ret;
+    while (true) {
+        consume();  // "," or begining "("
+        ret.push_back(expression());
+    } while (token.type == TT::COMMA)
     return ret;
 }
 

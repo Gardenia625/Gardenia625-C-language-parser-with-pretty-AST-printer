@@ -1,6 +1,6 @@
 #include <memory>
-#include <string>
-#include <vector>
+#include <unordered_map>
+#include <unordered_set>
 
 #include "lexer.h"
 
@@ -67,7 +67,25 @@ private:
 // expression
 class Expression : public AST {
 public:
-    Expression(int v) : val(v) {}
+    Expression() = default;
+    Expression(string s) : name(s) {}
+    Expression(unique_ptr<Expression> l, string s) : name(s), left(std::move(l)) {}
+    void set_left(unique_ptr<Expression> l) { left = std::move(l); }
+    void set_mid(unique_ptr<Expression> m) { mid = std::move(m); }
+    void set_right(unique_ptr<Expression> r) { right = std::move(r); }
+    void make_call(vector<unique_ptr<Expression>>&& c) { call = std::move(c); }
+    void print(bool ending);
+private:
+    string name;
+    unique_ptr<Expression> left;
+    unique_ptr<Expression> mid;
+    unique_ptr<Expression> right;
+    vector<unique_ptr<Expression>> call;
+};
+
+class Constant : public Expression {
+public:
+    Constant(int v) : val(v) {}
     void print(bool ending);
 private:
     int val;
@@ -138,9 +156,7 @@ private:
 class ForStatement : public Statement {
 public:
     ForStatement() = default;
-    void add_init(unique_ptr<AST> f) { 
-        if (f) { cout << "ok"; }
-        for_init = std::move(f); }
+    void add_init(unique_ptr<AST> f) { for_init = std::move(f); }
     void add_cond(unique_ptr<Expression> c) { cond = std::move(c); }
     void add_inc(unique_ptr<Expression> i) { inc = std::move(i); }
     void add_body(unique_ptr<Statement> s) { body = std::move(s); }
@@ -175,9 +191,9 @@ private:
 
 // declaration
 class Parameter;
-struct CDecl : AST {
-    CDecl() = default;
-    CDecl(string s) : name(s) {}
+struct Declarator : AST {
+    Declarator() = default;
+    Declarator(string s) : name(s) {}
     void print(bool ending);
     string name;
     int depth = 0;  // pointer depth
@@ -187,10 +203,10 @@ struct CDecl : AST {
 
 struct Parameter : AST {
     Parameter() = default;
-    Parameter(CType t, CDecl d) : type(t), decl(std::move(d)) {}
+    Parameter(CType t, Declarator d) : type(t), decl(std::move(d)) {}
     void print(bool ending);
     CType type;
-    CDecl decl;
+    Declarator decl;
 };
 
 class Initializer : public AST {
@@ -209,25 +225,25 @@ private:
 
 class Variable : public AST {
 public:
-    Variable(CType t, CDecl d) : type(t), decl(std::move(d)) {}
+    Variable(CType t, Declarator d) : type(t), decl(std::move(d)) {}
     void init(unique_ptr<Initializer> p) { initializer = std::move(p); }
     void print(bool ending);
 private:
     CType type;
-    CDecl decl;
+    Declarator decl;
     unique_ptr<Initializer> initializer;
 };
 
 class Function : public AST {
 public:
-    Function(CType t, CDecl d) : type(t) {
+    Function(CType t, Declarator d) : type(t) {
         decl = std::move(d);
     }
     void set_body(unique_ptr<Block> p) { body = std::move(p); }
     void print(bool ending);
 private:
     CType type;
-    CDecl decl;
+    Declarator decl;
     unique_ptr<Block> body;
 };
 

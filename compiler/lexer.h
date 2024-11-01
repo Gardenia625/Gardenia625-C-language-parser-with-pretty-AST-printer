@@ -10,7 +10,6 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include <format>
 
 #include "error.h"
 
@@ -55,7 +54,8 @@ enum class TT {
     L_BRACE,
     R_BRACE,
     COMMA,
-    SEMICOLON
+    SEMICOLON,
+    COLON
 };
 
 struct Token {
@@ -64,9 +64,6 @@ struct Token {
     int row;
     int col;
     void print();
-    bool is_operator(string s) {
-        return (type == TT::OPERATOR) && (s == value);
-    }
     bool is_specifier() {
         return type == TT::STATIC
             || type == TT::EXTERN
@@ -77,6 +74,12 @@ struct Token {
             || type == TT::UNSIGNED
             || type == TT::DOUBLE
             || type == TT::STRUCT;
+    }
+    bool is_operator(string s="") {
+        if (type == TT::OPERATOR || type == TT::COMMA) {
+            return s.empty() ? true : s == value;
+        }
+        return false;
     }
 };
 

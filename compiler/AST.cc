@@ -5,10 +5,14 @@
 #include "AST.h"
 
 // Notes:
-// 1. CType, CDecl, Parameter are printed inline,
-//    while others are printed on separate lines.
-// 2. Each node executes indent_push() for its child nodes,
-//    and excute "cur -= 2" for itself.
+// 1. CType, Declarator, and Parameter are printed inline, while others are printed on separate lines.
+// 2. Each node executes "indent_push()" for its child nodes and "cur -= 2" for itself.
+//    Thus, every version of the virtual function "print" (except for the one in class Program) 
+//    needs to end with "cur -= (ending ? 2 : 0)".
+// 3. The function "print_component" will execute "indent_push()" once.
+//    Thus, if both "indent_push()" and "print_component(...)" are executed,
+//    an additional "cur -= 2" should be executed at the end.
+//    In my code, I let the function "print" end with "cur -= (ending ? 4 : 2)" instead in this situation.
 
 vector<int> AST::indent = {};
 int AST::cur = 0;
@@ -29,8 +33,7 @@ void AST::print_indent(bool ending) {
     }
     if (ending) {
         indent.pop_back();
-        // Pop is executed automatically,
-        // but "cur -= 2" needs to be executed afterward.
+        // pop is executed automatically, but "cur -= 2" needs to be executed manually.
     }
 }
 
@@ -41,7 +44,6 @@ void AST::indent_push() {
 }
 
 // Print the name of component, then execute indent_push().
-// If this function is used, "cur -= 2" needs to be executed afterward.
 void AST::print_component(string name, bool ending) {
     print_indent(ending);
     cout << COLOR_COMPONENT << name << COLOR_RESET << endl;
@@ -81,27 +83,51 @@ void Program::print(bool ending) {
 // expression
 void Expression::print(bool ending) {
     print_indent(ending);
-    cout << val << endl;
-    if (ending) {
-        cur -= 2;
+    if (left) {
+        cout << COLOR_OPERATOR << ((bool)mid ? "? :" : name) << COLOR_RESET << endl;
+        indent_push();
+        left->print(!(bool)right);
+        if (mid) {
+            mid->print(false);
+        }
+        if (right) {
+            right->print(true);
+        }
+        
+    } else {
+        // identifier
+        if (call.empty()) {
+            cout << name << endl;
+        } else {
+
+        }
     }
+    cur -= (ending ? 2 : 0);
 }
 
+void Constant::print(bool ending) {
+    print_indent(ending);
+    cout << COLOR_CONST << val << COLOR_RESET << endl;
+    cur -= (ending ? 2 : 0);
+}
 
 // statement
 void Statement::print(bool ending) {
-    if (statement_type == ST::NONE) {
-        return;
-    }
     print_indent(ending);
+    cout << COLOR_CLASS;
     switch (statement_type) {
+        case ST::NONE:
+            cout << "empty_statement";
+            break;
         case ST::CONTINUE:
-            cout << COLOR_CLASS << "continue" << COLOR_RESET;
-            return;
+            cout << "continue";
+            break;
         case ST::BREAK:
-            cout << COLOR_CLASS << "break" << COLOR_RESET;
-            return;
+            cout << "break";
+            break;
     }
+    cout << COLOR_RESET << endl;
+    cur -= (ending ? 2 : 0);
 }
 
 void ReturnStatement::print(bool ending) {
@@ -109,9 +135,7 @@ void ReturnStatement::print(bool ending) {
     cout << COLOR_CLASS << "Return " << COLOR_RESET << endl;
     indent_push();
     exp->print(true);
-    if (ending) {
-        cur -= 2;
-    }
+    cur -= (ending ? 2 : 0);
 }
 
 void IfStatement::print(bool ending) {
@@ -182,20 +206,13 @@ void ForStatement::print(bool ending) {
 }
 
 void Block::print(bool ending) {
-    // indent_push();
-    // print_indent(ending);
-    // cout << COLOR_CLASS <<  "Block" << COLOR_RESET << endl;
-    // for (auto it = items.begin(); it != items.end(); ++it) {
-    //     (*it)->print(it + 1 == items.end());
-    // }
-    // cur -= 2;
-    if (items.empty() && ending) {
-        indent.pop_back();
-        cur -= 2;
-    }
+    print_indent(ending);
+    cout << COLOR_CLASS <<  "Block" << COLOR_RESET << endl;
+    indent_push();
     for (auto it = items.begin(); it != items.end(); ++it) {
         (*it)->print(it + 1 == items.end());
     }
+    cur -= (ending ? 2 : 0);
 }
 
 void ExpStatement::print(bool ending) {
@@ -203,7 +220,7 @@ void ExpStatement::print(bool ending) {
 }
 
 // declaration
-void CDecl::print(bool ending) {
+void Declarator::print(bool ending) {
     cout << string(depth, '*') << name;
     if (!parameters.empty()) {
         cout << "(";
@@ -214,13 +231,6 @@ void CDecl::print(bool ending) {
             }
         }
         cout << ")";
-    }
-    if (!indexes.empty()) {
-        for (auto& index : indexes) {
-            cout << "[";
-            index->print(false);
-            cout << "]";
-        }
     }
 }
 
@@ -236,15 +246,11 @@ void Initializer::print(bool ending) {
     if (init_list.empty()) {
         exp->print(ending);
     } else {
-        cout << "{";
+        print_component("initializer_list", true);
         for (auto it = init_list.begin(); it != init_list.end(); ++it) {
-            (*it)->print(false);
-            if (it + 1 < init_list.end()) {
-                cout << ", ";
-            }
+            (*it)->print(it + 1 == init_list.end());
         }
-        cout << "}";
-        cout << endl;
+        cur -= 2;
     }
 }
 
@@ -253,17 +259,22 @@ void Variable::print(bool ending) {
     cout << COLOR_CLASS << "Varible" << COLOR_RESET << endl;
     indent_push();
     // type
-    print_component("type", false);
-    print_indent(true);
+    print_indent(false);
+    cout << COLOR_COMPONENT << "type: " << COLOR_RESET;
     type.print();
     cout << endl;
-    cur -= 2;
     // declarator
-    print_component("declarator", !(bool)initializer);
-    print_indent(true);
+    print_indent(decl.indexes.empty() && !(bool)initializer);
+    cout << COLOR_COMPONENT << "declarator: " << COLOR_RESET;
     decl.print(false);
     cout << endl;
-    cur -= 2;
+    // array size
+    if (!decl.indexes.empty()) {
+        print_component("array_size", !(bool)initializer);
+        for (auto it = decl.indexes.begin(); it != decl.indexes.end(); ++it) {
+            (*it)->print(it + 1 == decl.indexes.end());
+        }
+    }
     // initializer
     if (initializer) {
         print_component("initializer", true);
@@ -277,13 +288,12 @@ void Function::print(bool ending) {
     cout << COLOR_CLASS << "Function" << COLOR_RESET << endl;
     indent_push();
     // signature
-    print_component("signature", false);
-    print_indent(true);
+    print_indent(!(bool)body);
+    cout << COLOR_COMPONENT << "signature: " << COLOR_RESET;
     type.print();
     cout << " ";
     decl.print(false);
     cout << endl;
-    cur -= 2;
     // body
     print_component("body", true);
     body->print(true);
@@ -292,6 +302,5 @@ void Function::print(bool ending) {
 
 
 void Struct::print(bool ending) {
-    // cout << string(2 * indent++, ' ') << "Struct(" << endl
-    //      << string(2 * indent, ' ') << "name: " << type.name;
+    
 }

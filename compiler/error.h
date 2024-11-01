@@ -26,12 +26,12 @@ using std::string;
 // 5 紫
 // 6 青
 #define COLOR_ERROR "\033[1;91m"      // bold high intensity red
-#define COLOR_TITLE "\033[1;93m"      // bold high intensity yellow
-#define COLOR_CLASS "\033[1;36m"      // bold cyan
+#define COLOR_TITLE "\033[1;92m"      // bold high intensity green
+#define COLOR_CLASS "\033[1;96m"      // bold high intensity cyan
 #define COLOR_COMPONENT "\033[0;36m"  // cyan
 #define COLOR_TYPE "\033[0;34m"       // blue
-#define COLOR_NORMAL "\033[0;32m"
-#define COLOR_OPERATOR "\033[0;35m"   // purple
+#define COLOR_OPERATOR "\033[0;93m"   // high intensity yellow
+#define COLOR_CONST "\033[0;95m"      // high intensity purple
 #define COLOR_RESET "\033[0m"
 
 
