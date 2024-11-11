@@ -34,7 +34,7 @@ void Parser::match(TT t) {
 unique_ptr<Program> Parser::program() {
     unique_ptr<Program> ret = make_unique<Program>();
     while (token.type != TT::END) {
-        *ret += std::move(declaration(true));
+        *ret += declaration(true);
     }
     if (par_flag) {
         cout << COLOR_TITLE << "AST" << COLOR_RESET << endl;
@@ -66,7 +66,7 @@ unique_ptr<AST> Parser::declaration(bool global) {
         unique_ptr<Function> ret = make_unique<Function>(type, std::move(decl));
         switch(consume().type) {
             case TT::L_BRACE:
-                ret->set_body(block());
+                ret->body = block();
             case TT::SEMICOLON:
                 break;
             default:
@@ -195,7 +195,7 @@ unique_ptr<Initializer> Parser::initializer() {
             if (token.type == TT::R_BRACE) {
                 break;
             }
-            *ret += std::move(initializer());
+            *ret += initializer();
         } while (token.type == TT::COMMA);
         match(TT::R_BRACE);
         return ret;
@@ -232,7 +232,7 @@ unique_ptr<Statement> Parser::statement() {
         unique_ptr<IfStatement> ret = make_unique<IfStatement>(std::move(cond), statement());
         if (token.type == TT::ELSE) {
             consume();  // "else"
-            ret->add_else(statement());
+            ret->_else = statement();
         }
         return ret;
     } else if (token.type == TT::WHILE) {
@@ -255,29 +255,29 @@ unique_ptr<Statement> Parser::statement() {
         match(TT::L_PARENTHESIS);
         unique_ptr<ForStatement> ret = make_unique<ForStatement>();
         if (is_specifier()) {
-            ret->add_init(declaration(false));
+            ret->init = declaration(false);
         } else {
-            ret->add_init(expression());
+            ret->init = expression();
             match(TT::SEMICOLON);
         }
         if (token.type != TT::SEMICOLON) {
-            ret->add_cond(expression());
+            ret->cond = expression();
         }
         match(TT::SEMICOLON);
         if (token.type != TT::R_PARENTHESIS) {
-            ret->add_inc(expression());
+            ret->inc = expression();
         }
         match(TT::R_PARENTHESIS);
-        ret->add_body(statement());
+        ret->body = statement();
         return ret;
     } else if (token.type == TT::CONTINUE) {
         consume();  // "continue"
         match(TT::SEMICOLON);
-        return make_unique<Statement>(ST::CONTINUE);
+        return make_unique<ContinueStatement>();
     } else if (token.type == TT::BREAK) {
         consume();  // "break"
         match(TT::SEMICOLON);
-        return make_unique<Statement>(ST::BREAK);
+        return make_unique<BreakStatement>();
     } else if (token.type == TT::L_BRACE) {
         consume();  // "{"
         return block();
@@ -296,9 +296,9 @@ unique_ptr<Block> Parser::block() {
     while (token.type != TT::R_BRACE) {
         int line = token.row;
         if (is_specifier()) {
-            *ret += std::move(declaration(false));
+            *ret += declaration(false);
         } else {
-            *ret += std::move(statement());
+            *ret += statement();
         }
     }
     match(TT::R_BRACE);
@@ -387,11 +387,11 @@ unique_ptr<Expression> Parser::expression(int min_prec) {
         unique_ptr<Expression> new_left = make_unique<Expression>(std::move(left), token.value);
         left = std::move(new_left);
         if (consume().value == "?") {
-            left->set_mid(expression());
+            left->mid = expression();
             match(TT::COLON);
-            left->set_right(expression(prec + assoc_left));
+            left->right = expression(prec + assoc_left);
         } else {
-            left->set_right(expression(prec + assoc_left));
+            left->right = expression(prec + assoc_left);
         }
     }
     return left;
@@ -407,7 +407,7 @@ unique_ptr<Expression> Parser::factor() {
         return make_unique<Constant>(stoi(consume().value));
     } else if (is_unary()) {
         unique_ptr<Expression> ret = make_unique<Expression>(consume().value);
-        ret->set_left(factor());
+        ret->left = factor();
         return ret;
     } else if (token.type == TT::L_PARENTHESIS) {
         consume();  // "("
@@ -418,7 +418,7 @@ unique_ptr<Expression> Parser::factor() {
         unique_ptr<Expression> ret = make_unique<Expression>(identifier());
         if (token.type == TT::L_PARENTHESIS) {
             consume();  // "("
-            ret->make_call(argument_list());
+            ret->call = argument_list();
             match(TT::R_PARENTHESIS);
         }
         return ret;

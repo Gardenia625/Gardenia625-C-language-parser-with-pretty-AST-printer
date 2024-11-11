@@ -114,19 +114,19 @@ void Constant::print(bool ending) {
 // statement
 void Statement::print(bool ending) {
     print_indent(ending);
-    cout << COLOR_CLASS;
-    switch (statement_type) {
-        case ST::NONE:
-            cout << "empty_statement";
-            break;
-        case ST::CONTINUE:
-            cout << "continue";
-            break;
-        case ST::BREAK:
-            cout << "break";
-            break;
-    }
-    cout << COLOR_RESET << endl;
+    cout << COLOR_CLASS << "EmptyStatement" << COLOR_RESET << endl;
+    cur -= (ending ? 2 : 0);
+}
+
+void ContinueStatement::print(bool ending) {
+    print_indent(ending);
+    cout << COLOR_CLASS << "Continue" << COLOR_RESET << endl;
+    cur -= (ending ? 2 : 0);
+}
+
+void BreakStatement::print(bool ending) {
+    print_indent(ending);
+    cout << COLOR_CLASS << "Break" << COLOR_RESET << endl;
     cur -= (ending ? 2 : 0);
 }
 
@@ -188,7 +188,7 @@ void ForStatement::print(bool ending) {
     indent_push();
     // init
     print_component("initialization", false);
-    for_init->print(true);
+    init->print(true);
     // condition
     if (cond) {
         print_component("condition", false);
