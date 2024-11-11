@@ -201,8 +201,8 @@ struct Function : public AST {
     unique_ptr<Block> body;
 };
 
-struct Struct : public AST {
-    Struct(string s) : name(s) {}
-    void print(bool ending);
-    string name;
-};
+// struct Struct : public AST {
+//     Struct(string s) : name(s) {}
+//     void print(bool ending);
+//     string name;
+// };
