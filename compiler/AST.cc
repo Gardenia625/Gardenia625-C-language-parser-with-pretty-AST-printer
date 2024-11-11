@@ -187,8 +187,10 @@ void ForStatement::print(bool ending) {
     cout << COLOR_CLASS << "For" << COLOR_RESET << endl;
     indent_push();
     // init
-    print_component("initialization", false);
-    init->print(true);
+    if (init) {
+        print_component("initialization", false);
+        init->print(true);
+    }
     // condition
     if (cond) {
         print_component("condition", false);
@@ -298,9 +300,4 @@ void Function::print(bool ending) {
     print_component("body", true);
     body->print(true);
     cur -= (ending ? 4 : 2);
-}
-
-
-void Struct::print(bool ending) {
-    
 }

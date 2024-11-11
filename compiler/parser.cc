@@ -257,7 +257,9 @@ unique_ptr<Statement> Parser::statement() {
         if (is_specifier()) {
             ret->init = declaration(false);
         } else {
-            ret->init = expression();
+            if (token.type != TT::SEMICOLON) {
+                ret->init = expression();
+            }
             match(TT::SEMICOLON);
         }
         if (token.type != TT::SEMICOLON) {

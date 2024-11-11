@@ -18,13 +18,7 @@ using std::endl;
 using std::vector;
 using std::string;
 
-// ANSI color
-// 1 红
-// 2 绿
-// 3 黄 (亮)
-// 4 蓝
-// 5 紫
-// 6 青
+
 #define COLOR_ERROR "\033[1;91m"      // bold high intensity red
 #define COLOR_TITLE "\033[1;92m"      // bold high intensity green
 #define COLOR_CLASS "\033[1;96m"      // bold high intensity cyan

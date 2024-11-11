@@ -9,8 +9,6 @@ using std::make_unique;
 
 // Note:
 // 1. Except for CType, Declarator, and Parameter, instances of all other types are stored as pointers.
-//    
-
 
 // specifier
 enum struct CS{
