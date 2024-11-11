@@ -1,7 +1,8 @@
-int a = -1;
+int i = 0;
 int main(void) {
-    for (int i = 0; i < 5; ++i) {
-        continue;
+    while (i < 5) {
+        ++i;
     }
-    return 1 + 2 * 3 / 4; 
+    int a = 1 + 2 * 3 / 4;
+    return 0;
 }

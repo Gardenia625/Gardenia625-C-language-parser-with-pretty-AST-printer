@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_BUILD_TYPE Debug)  # 调试用
 
-add_executable(a
+add_executable(gardenia
     main.cc
     error.cc
     lexer.cc

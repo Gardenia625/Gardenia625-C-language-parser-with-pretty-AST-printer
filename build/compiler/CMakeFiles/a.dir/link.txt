@@ -1,0 +1,1 @@
+/usr/bin/g++ -g CMakeFiles/a.dir/main.cc.o CMakeFiles/a.dir/error.cc.o CMakeFiles/a.dir/lexer.cc.o CMakeFiles/a.dir/AST.cc.o CMakeFiles/a.dir/parser.cc.o -o /home/gardenia/coding/compiler/a 
